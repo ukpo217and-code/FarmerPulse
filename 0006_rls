@@ -1,0 +1,475 @@
+-- ============================================================
+-- 0006: Row-level security — enable + policies
+-- Multi-tenant model: org-scoped by default, actor self-service,
+-- platform_admin sees across all orgs, select marketplace tables
+-- (buyers, commodity_listings, opportunities, input_suppliers,
+-- reference data) are readable coalition-wide by design.
+-- ============================================================
+
+-- ---------- Enable RLS on every table ----------
+
+ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actor_addresses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actor_contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actor_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actor_memory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actor_opportunities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actor_risk_scores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actor_tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agronomic_advisories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_inference_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_intents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_models ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_recommendations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.api_clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.api_usage_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.apiaries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.assessments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.backup_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.beneficiaries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.buyers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.climate_risk_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.commodity_listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversation_summaries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crop_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crop_seasons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.dashboard_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.database_health_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.distribution_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.distribution_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.error_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.farm_inputs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.farm_plots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.farms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.financial_institutions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.harvests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.household_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.input_suppliers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.insurance_policies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.interventions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.job_execution_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.livestock ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.maintenance_windows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.market_prices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.media_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monitoring_visits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notification_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.opportunities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.opportunity_matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.outcome_indicators ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pest_disease_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.platform_info ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.platform_metrics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.production_costs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pulse_scores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchase_offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recommendations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.savings_group_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.savings_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.scheduled_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.schema_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.soil_tests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.survey_answers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.survey_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.survey_responses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.survey_sections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.surveys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.voice_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.voice_transcripts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.weather_forecasts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.weather_observations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.weather_stations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whatsapp_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whatsapp_sessions ENABLE ROW LEVEL SECURITY;
+
+-- Restrict the materialized view from anon/authenticated (no RLS on matviews)
+REVOKE SELECT ON public.mv_dashboard_summary FROM anon, authenticated;
+
+-- ---------- Core identity ----------
+
+CREATE POLICY org_access ON public.organizations FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY actors_access ON public.actors FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (id = app.current_actor_id()) OR (organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (id = app.current_actor_id()) OR (organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY users_access ON public.users FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (auth_user_id = (SELECT auth.uid())) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (auth_user_id = (SELECT auth.uid())) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY roles_read ON public.roles FOR SELECT TO authenticated USING (true);
+CREATE POLICY roles_admin_write ON public.roles FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY roles_admin_update ON public.roles FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY roles_admin_delete ON public.roles FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+CREATE POLICY user_roles_access ON public.user_roles FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (user_id IN (SELECT u.id FROM users u WHERE u.auth_user_id = (SELECT auth.uid()))))
+WITH CHECK (app.is_platform_admin());
+
+CREATE POLICY org_members_access ON public.organization_members FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())) OR (actor_id = app.current_actor_id()))
+WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY api_clients_access ON public.api_clients FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY api_keys_access ON public.api_keys FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY activities_access ON public.activities FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())) OR (actor_id = app.current_actor_id()))
+WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())) OR (actor_id = app.current_actor_id()));
+
+CREATE POLICY notifications_access ON public.notifications FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+-- ---------- Actor profile / farm data ----------
+
+CREATE POLICY farms_access ON public.farms FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY farm_plots_access ON public.farm_plots FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM farms f WHERE f.id = farm_plots.farm_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM farms f WHERE f.id = farm_plots.farm_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY households_access ON public.households FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY household_members_access ON public.household_members FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM households h WHERE h.id = household_members.household_id AND (h.actor_id = app.current_actor_id() OR app.actor_org_id(h.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM households h WHERE h.id = household_members.household_id AND (h.actor_id = app.current_actor_id() OR app.actor_org_id(h.actor_id) IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY actor_contacts_access ON public.actor_contacts FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY actor_documents_access ON public.actor_documents FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY actor_addresses_access ON public.actor_addresses FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY actor_tags_access ON public.actor_tags FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY crops_read ON public.crops FOR SELECT TO authenticated USING (true);
+CREATE POLICY crops_admin_write ON public.crops FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY crops_admin_update ON public.crops FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY crops_admin_delete ON public.crops FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+CREATE POLICY crop_seasons_access ON public.crop_seasons FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM farms f WHERE f.id = crop_seasons.farm_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM farms f WHERE f.id = crop_seasons.farm_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY crop_activities_access ON public.crop_activities FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM crop_seasons cs JOIN farms f ON f.id = cs.farm_id WHERE cs.id = crop_activities.crop_season_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM crop_seasons cs JOIN farms f ON f.id = cs.farm_id WHERE cs.id = crop_activities.crop_season_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY farm_inputs_access ON public.farm_inputs FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM crop_seasons cs JOIN farms f ON f.id = cs.farm_id WHERE cs.id = farm_inputs.crop_season_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM crop_seasons cs JOIN farms f ON f.id = cs.farm_id WHERE cs.id = farm_inputs.crop_season_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY harvests_access ON public.harvests FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM crop_seasons cs JOIN farms f ON f.id = cs.farm_id WHERE cs.id = harvests.crop_season_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM crop_seasons cs JOIN farms f ON f.id = cs.farm_id WHERE cs.id = harvests.crop_season_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY production_costs_access ON public.production_costs FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM crop_seasons cs JOIN farms f ON f.id = cs.farm_id WHERE cs.id = production_costs.crop_season_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM crop_seasons cs JOIN farms f ON f.id = cs.farm_id WHERE cs.id = production_costs.crop_season_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY livestock_access ON public.livestock FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY apiaries_access ON public.apiaries FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY soil_tests_access ON public.soil_tests FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM farms f WHERE f.id = soil_tests.farm_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM farms f WHERE f.id = soil_tests.farm_id AND (f.actor_id = app.current_actor_id() OR app.actor_org_id(f.actor_id) IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY pest_disease_reports_access ON public.pest_disease_reports FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY agronomic_advisories_access ON public.agronomic_advisories FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY climate_risk_events_access ON public.climate_risk_events FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY assessments_access ON public.assessments FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY monitoring_visits_access ON public.monitoring_visits FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY outcome_indicators_access ON public.outcome_indicators FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY dashboard_snapshots_access ON public.dashboard_snapshots FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+
+-- ---------- WhatsApp / AI pipeline ----------
+
+CREATE POLICY whatsapp_sessions_access ON public.whatsapp_sessions FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY whatsapp_messages_access ON public.whatsapp_messages FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM whatsapp_sessions ws WHERE ws.id = whatsapp_messages.session_id AND (ws.actor_id = app.current_actor_id() OR ws.organization_id IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM whatsapp_sessions ws WHERE ws.id = whatsapp_messages.session_id AND (ws.actor_id = app.current_actor_id() OR ws.organization_id IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY voice_notes_access ON public.voice_notes FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM whatsapp_messages wm JOIN whatsapp_sessions ws ON ws.id = wm.session_id WHERE wm.id = voice_notes.message_id AND (ws.actor_id = app.current_actor_id() OR ws.organization_id IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM whatsapp_messages wm JOIN whatsapp_sessions ws ON ws.id = wm.session_id WHERE wm.id = voice_notes.message_id AND (ws.actor_id = app.current_actor_id() OR ws.organization_id IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY voice_transcripts_access ON public.voice_transcripts FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM voice_notes vn JOIN whatsapp_messages wm ON wm.id = vn.message_id JOIN whatsapp_sessions ws ON ws.id = wm.session_id WHERE vn.id = voice_transcripts.voice_note_id AND (ws.actor_id = app.current_actor_id() OR ws.organization_id IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM voice_notes vn JOIN whatsapp_messages wm ON wm.id = vn.message_id JOIN whatsapp_sessions ws ON ws.id = wm.session_id WHERE vn.id = voice_transcripts.voice_note_id AND (ws.actor_id = app.current_actor_id() OR ws.organization_id IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY media_attachments_access ON public.media_attachments FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM whatsapp_messages wm JOIN whatsapp_sessions ws ON ws.id = wm.session_id WHERE wm.id = media_attachments.message_id AND (ws.actor_id = app.current_actor_id() OR ws.organization_id IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM whatsapp_messages wm JOIN whatsapp_sessions ws ON ws.id = wm.session_id WHERE wm.id = media_attachments.message_id AND (ws.actor_id = app.current_actor_id() OR ws.organization_id IN (SELECT app.current_org_ids()))));
+
+CREATE POLICY conversations_access ON public.conversations FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY ai_conversations_access ON public.ai_conversations FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY conversation_summaries_access ON public.conversation_summaries FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY actor_memory_access ON public.actor_memory FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY actor_risk_scores_access ON public.actor_risk_scores FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY actor_opportunities_access ON public.actor_opportunities FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY pulse_scores_access ON public.pulse_scores FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY ai_recommendations_access ON public.ai_recommendations FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY ai_feedback_access ON public.ai_feedback FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY ai_inference_logs_access ON public.ai_inference_logs FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY recommendations_access ON public.recommendations FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY ai_intents_read ON public.ai_intents FOR SELECT TO authenticated USING (true);
+CREATE POLICY ai_intents_admin_write ON public.ai_intents FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY ai_intents_admin_update ON public.ai_intents FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY ai_intents_admin_delete ON public.ai_intents FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+CREATE POLICY ai_models_read ON public.ai_models FOR SELECT TO authenticated USING (true);
+CREATE POLICY ai_models_admin_write ON public.ai_models FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY ai_models_admin_update ON public.ai_models FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY ai_models_admin_delete ON public.ai_models FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+-- ---------- Programs / M&E ----------
+
+CREATE POLICY projects_access ON public.projects FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY interventions_access ON public.interventions FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM projects p WHERE p.id = interventions.project_id AND p.organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM projects p WHERE p.id = interventions.project_id AND p.organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY beneficiaries_access ON public.beneficiaries FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())) OR (actor_id = app.current_actor_id())
+  OR EXISTS (SELECT 1 FROM interventions iv JOIN projects p ON p.id = iv.project_id WHERE iv.id = beneficiaries.intervention_id AND p.organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids()))
+  OR EXISTS (SELECT 1 FROM interventions iv JOIN projects p ON p.id = iv.project_id WHERE iv.id = beneficiaries.intervention_id AND p.organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY distribution_events_access ON public.distribution_events FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM interventions iv JOIN projects p ON p.id = iv.project_id WHERE iv.id = distribution_events.intervention_id AND p.organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM interventions iv JOIN projects p ON p.id = iv.project_id WHERE iv.id = distribution_events.intervention_id AND p.organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY distribution_items_access ON public.distribution_items FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM distribution_events de JOIN interventions iv ON iv.id = de.intervention_id JOIN projects p ON p.id = iv.project_id WHERE de.id = distribution_items.distribution_event_id AND p.organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM distribution_events de JOIN interventions iv ON iv.id = de.intervention_id JOIN projects p ON p.id = iv.project_id WHERE de.id = distribution_items.distribution_event_id AND p.organization_id IN (SELECT app.current_org_ids())));
+
+-- ---------- Surveys ----------
+
+CREATE POLICY surveys_access ON public.surveys FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY survey_sections_access ON public.survey_sections FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM surveys s WHERE s.id = survey_sections.survey_id AND s.organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM surveys s WHERE s.id = survey_sections.survey_id AND s.organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY survey_questions_access ON public.survey_questions FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM survey_sections ss JOIN surveys s ON s.id = ss.survey_id WHERE ss.id = survey_questions.section_id AND s.organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM survey_sections ss JOIN surveys s ON s.id = ss.survey_id WHERE ss.id = survey_questions.section_id AND s.organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY survey_responses_access ON public.survey_responses FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids()))
+  OR EXISTS (SELECT 1 FROM surveys s WHERE s.id = survey_responses.survey_id AND s.organization_id IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids()))
+  OR EXISTS (SELECT 1 FROM surveys s WHERE s.id = survey_responses.survey_id AND s.organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY survey_answers_access ON public.survey_answers FOR ALL TO authenticated
+USING (app.is_platform_admin() OR EXISTS (SELECT 1 FROM survey_responses sr WHERE sr.id = survey_answers.response_id AND (sr.actor_id = app.current_actor_id() OR app.actor_org_id(sr.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR EXISTS (SELECT 1 FROM survey_responses sr WHERE sr.id = survey_answers.response_id AND (sr.actor_id = app.current_actor_id() OR app.actor_org_id(sr.actor_id) IN (SELECT app.current_org_ids()))));
+
+-- ---------- Coalition marketplace (discovery is cross-org by design) ----------
+
+CREATE POLICY opportunities_read ON public.opportunities FOR SELECT TO authenticated USING (true);
+CREATE POLICY opportunities_insert ON public.opportunities FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+CREATE POLICY opportunities_update ON public.opportunities FOR UPDATE TO authenticated USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids()))) WITH CHECK (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+CREATE POLICY opportunities_delete ON public.opportunities FOR DELETE TO authenticated USING (app.is_platform_admin() OR (organization_id IN (SELECT app.current_org_ids())));
+
+CREATE POLICY opportunity_matches_access ON public.opportunity_matches FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY buyers_read ON public.buyers FOR SELECT TO authenticated USING (true);
+CREATE POLICY buyers_insert ON public.buyers FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+CREATE POLICY buyers_update ON public.buyers FOR UPDATE TO authenticated USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids()))) WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+CREATE POLICY buyers_delete ON public.buyers FOR DELETE TO authenticated USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY commodity_listings_read ON public.commodity_listings FOR SELECT TO authenticated USING (true);
+CREATE POLICY commodity_listings_insert ON public.commodity_listings FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+CREATE POLICY commodity_listings_update ON public.commodity_listings FOR UPDATE TO authenticated USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids()))) WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+CREATE POLICY commodity_listings_delete ON public.commodity_listings FOR DELETE TO authenticated USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY purchase_offers_access ON public.purchase_offers FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids()))
+  OR EXISTS (SELECT 1 FROM buyers b WHERE b.id = purchase_offers.buyer_id AND (b.actor_id = app.current_actor_id() OR app.actor_org_id(b.actor_id) IN (SELECT app.current_org_ids()))))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids()))
+  OR EXISTS (SELECT 1 FROM buyers b WHERE b.id = purchase_offers.buyer_id AND (b.actor_id = app.current_actor_id() OR app.actor_org_id(b.actor_id) IN (SELECT app.current_org_ids()))));
+
+-- ---------- Finance ----------
+
+CREATE POLICY financial_institutions_read ON public.financial_institutions FOR SELECT TO authenticated USING (true);
+CREATE POLICY financial_institutions_admin_write ON public.financial_institutions FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY financial_institutions_admin_update ON public.financial_institutions FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY financial_institutions_admin_delete ON public.financial_institutions FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+CREATE POLICY loans_access ON public.loans FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY insurance_policies_access ON public.insurance_policies FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY savings_groups_access ON public.savings_groups FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (created_by = app.current_actor_id()) OR (app.actor_org_id(created_by) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (created_by = app.current_actor_id()) OR (app.actor_org_id(created_by) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY savings_group_members_access ON public.savings_group_members FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+CREATE POLICY input_suppliers_read ON public.input_suppliers FOR SELECT TO authenticated USING (true);
+CREATE POLICY input_suppliers_insert ON public.input_suppliers FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+CREATE POLICY input_suppliers_update ON public.input_suppliers FOR UPDATE TO authenticated USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids()))) WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+CREATE POLICY input_suppliers_delete ON public.input_suppliers FOR DELETE TO authenticated USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
+
+-- ---------- Global reference data ----------
+
+CREATE POLICY market_prices_read ON public.market_prices FOR SELECT TO authenticated USING (true);
+CREATE POLICY market_prices_admin_write ON public.market_prices FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY market_prices_admin_update ON public.market_prices FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY market_prices_admin_delete ON public.market_prices FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+CREATE POLICY weather_stations_read ON public.weather_stations FOR SELECT TO authenticated USING (true);
+CREATE POLICY weather_stations_admin_write ON public.weather_stations FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY weather_stations_admin_update ON public.weather_stations FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY weather_stations_admin_delete ON public.weather_stations FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+CREATE POLICY weather_observations_read ON public.weather_observations FOR SELECT TO authenticated USING (true);
+CREATE POLICY weather_observations_admin_write ON public.weather_observations FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY weather_observations_admin_update ON public.weather_observations FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY weather_observations_admin_delete ON public.weather_observations FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+CREATE POLICY weather_forecasts_read ON public.weather_forecasts FOR SELECT TO authenticated USING (true);
+CREATE POLICY weather_forecasts_admin_write ON public.weather_forecasts FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY weather_forecasts_admin_update ON public.weather_forecasts FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY weather_forecasts_admin_delete ON public.weather_forecasts FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+-- ---------- Internal / ops (platform_admin only, unless noted) ----------
+
+CREATE POLICY api_usage_logs_admin_only ON public.api_usage_logs FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY audit_logs_admin_only ON public.audit_logs FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY backup_history_admin_only ON public.backup_history FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY database_health_logs_admin_only ON public.database_health_logs FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY error_logs_admin_only ON public.error_logs FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY job_execution_logs_admin_only ON public.job_execution_logs FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY platform_metrics_admin_only ON public.platform_metrics FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY scheduled_jobs_admin_only ON public.scheduled_jobs FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY schema_versions_admin_only ON public.schema_versions FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY system_events_admin_only ON public.system_events FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY system_settings_admin_only ON public.system_settings FOR ALL TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+
+CREATE POLICY maintenance_windows_read ON public.maintenance_windows FOR SELECT TO authenticated USING (true);
+CREATE POLICY maintenance_windows_admin_write ON public.maintenance_windows FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY maintenance_windows_admin_update ON public.maintenance_windows FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY maintenance_windows_admin_delete ON public.maintenance_windows FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+CREATE POLICY platform_info_read ON public.platform_info FOR SELECT TO authenticated USING (true);
+CREATE POLICY platform_info_admin_write ON public.platform_info FOR INSERT TO authenticated WITH CHECK (app.is_platform_admin());
+CREATE POLICY platform_info_admin_update ON public.platform_info FOR UPDATE TO authenticated USING (app.is_platform_admin()) WITH CHECK (app.is_platform_admin());
+CREATE POLICY platform_info_admin_delete ON public.platform_info FOR DELETE TO authenticated USING (app.is_platform_admin());
+
+CREATE POLICY notification_queue_access ON public.notification_queue FOR ALL TO authenticated
+USING (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())))
+WITH CHECK (app.is_platform_admin() OR (actor_id = app.current_actor_id()) OR (app.actor_org_id(actor_id) IN (SELECT app.current_org_ids())));
