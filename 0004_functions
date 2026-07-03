@@ -1,0 +1,878 @@
+-- ============================================================
+-- 0004: app.* functions
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION app.normalize_phone(phone text)
+ RETURNS text
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    p text;
+BEGIN
+    p := regexp_replace(coalesce(phone,''), '[^0-9]', '', 'g');
+    IF length(p) = 11 AND left(p,1) = '0' THEN
+        p := '234' || substring(p FROM 2);
+    ELSIF length(p) = 10 THEN
+        p := '234' || p;
+    END IF;
+    RETURN p;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.full_name(first_name text, last_name text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT trim(coalesce(first_name,'') || ' ' || coalesce(last_name,''));
+$function$;
+
+CREATE OR REPLACE FUNCTION app.calculate_age(dob date)
+ RETURNS integer
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT EXTRACT(YEAR FROM age(current_date,dob))::integer;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.merge_json(a jsonb, b jsonb)
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT coalesce(a,'{}'::jsonb) || coalesce(b,'{}'::jsonb);
+$function$;
+
+CREATE OR REPLACE FUNCTION app.utc_now()
+ RETURNS timestamp with time zone
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT timezone('UTC', now());
+$function$;
+
+CREATE OR REPLACE FUNCTION app.set_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.set_deleted_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+    NEW.deleted_at = NOW();
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.generate_actor_number()
+ RETURNS text
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    n bigint;
+BEGIN
+    n := nextval('actor_number_seq');
+    RETURN 'FP-' || to_char(current_date,'YYYY') || '-' || lpad(n::text,8,'0');
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.generate_project_code()
+ RETURNS text
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    n bigint;
+BEGIN
+    n := nextval('project_number_seq');
+    RETURN 'PRJ-' || to_char(current_date,'YY') || '-' || lpad(n::text,5,'0');
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.generate_distribution_code()
+ RETURNS text
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    n bigint;
+BEGIN
+    n := nextval('distribution_number_seq');
+    RETURN 'DST-' || lpad(n::text,7,'0');
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.generate_survey_code()
+ RETURNS text
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    n bigint;
+BEGIN
+    n := nextval('survey_number_seq');
+    RETURN 'SUR-' || lpad(n::text,7,'0');
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.health()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT jsonb_build_object(
+    'application','FarmerPulse',
+    'version','1.0.0',
+    'status','healthy',
+    'database_time',now()
+);
+$function$;
+
+-- ---------- Identity / RLS helpers ----------
+
+CREATE OR REPLACE FUNCTION app.current_user_id()
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT auth.uid();
+$function$;
+
+CREATE OR REPLACE FUNCTION app.current_actor()
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT actor_id FROM users WHERE auth_user_id=auth.uid() LIMIT 1;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.current_actor_id()
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+  select u.actor_id
+  from public.users u
+  where u.auth_user_id = auth.uid()
+  limit 1;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.current_organization()
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT organization_id FROM actors WHERE id=app.current_actor() LIMIT 1;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.current_org_ids()
+ RETURNS SETOF uuid
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+  select om.organization_id
+  from public.organization_members om
+  where om.actor_id = app.current_actor_id();
+$function$;
+
+CREATE OR REPLACE FUNCTION app.actor_org_id(p_actor_id uuid)
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+  select a.organization_id from public.actors a where a.id = p_actor_id;
+$function$;
+
+CREATE OR REPLACE FUNCTION app."current_role"()
+ RETURNS text
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT r.name
+FROM users u
+JOIN user_roles ur ON ur.user_id=u.id
+JOIN roles r ON r.id=ur.role_id
+WHERE u.auth_user_id=auth.uid()
+LIMIT 1;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.is_platform_admin()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+  select exists (
+    select 1
+    from public.users u
+    join public.user_roles ur on ur.user_id = u.id
+    join public.roles r on r.id = ur.role_id
+    where u.auth_user_id = auth.uid()
+      and r.name = 'platform_admin'
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION app.belongs_to_org(p_actor uuid, p_org uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT EXISTS(SELECT 1 FROM actors WHERE id=p_actor AND organization_id=p_org);
+$function$;
+
+-- ---------- Actor / farm operations ----------
+
+CREATE OR REPLACE FUNCTION app.actor_exists(p_phone text)
+ RETURNS boolean
+ LANGUAGE sql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT EXISTS(SELECT 1 FROM actors WHERE phone=app.normalize_phone(p_phone));
+$function$;
+
+CREATE OR REPLACE FUNCTION app.find_actor(p_phone text)
+ RETURNS SETOF actors
+ LANGUAGE sql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT * FROM actors WHERE phone=app.normalize_phone(p_phone);
+$function$;
+
+CREATE OR REPLACE FUNCTION app.get_or_create_actor(p_phone text, p_name text DEFAULT 'Unknown Farmer'::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_actor UUID;
+BEGIN
+SELECT id INTO v_actor FROM actors WHERE phone = app.normalize_phone(p_phone) LIMIT 1;
+IF v_actor IS NULL THEN
+INSERT INTO actors(actor_number, actor_type, full_name, phone)
+VALUES(app.generate_actor_number(), 'farmer', p_name, app.normalize_phone(p_phone))
+RETURNING id INTO v_actor;
+END IF;
+RETURN v_actor;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.register_actor(p_organization_id uuid, p_actor_type actor_type, p_full_name text, p_phone text, p_email citext DEFAULT NULL::citext, p_state text DEFAULT NULL::text, p_lga text DEFAULT NULL::text, p_primary_crop text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_actor UUID;
+BEGIN
+INSERT INTO actors(organization_id, actor_number, actor_type, full_name, phone, email, state, lga, primary_crop)
+VALUES(p_organization_id, app.generate_actor_number(), p_actor_type, trim(p_full_name), app.normalize_phone(p_phone), p_email, p_state, p_lga, p_primary_crop)
+RETURNING id INTO v_actor;
+RETURN v_actor;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.normalize_actor_phone()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+    IF NEW.phone IS NOT NULL THEN
+        NEW.phone := app.normalize_phone(NEW.phone);
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.audit_actor_insert()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+PERFORM app.log_activity(NEW.id, NEW.organization_id, 'actor_registered', 'database', '{}');
+RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.register_farm(p_actor uuid, p_name text, p_commodity text, p_area numeric, p_lat double precision DEFAULT NULL::double precision, p_lng double precision DEFAULT NULL::double precision)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_farm UUID;
+BEGIN
+INSERT INTO farms(actor_id, farm_name, commodity, area_ha, latitude, longitude)
+VALUES(p_actor, p_name, p_commodity, p_area, p_lat, p_lng)
+RETURNING id INTO v_farm;
+RETURN v_farm;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.actor_farm_count(p_actor uuid)
+ RETURNS integer
+ LANGUAGE sql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT COUNT(*) FROM farms WHERE actor_id=p_actor;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.actor_total_area(p_actor uuid)
+ RETURNS numeric
+ LANGUAGE sql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT COALESCE(SUM(area_ha), 0) FROM farms WHERE actor_id=p_actor;
+$function$;
+
+-- ---------- Pulse score / recommendations ----------
+
+CREATE OR REPLACE FUNCTION app.calculate_pulse_score(p_actor uuid)
+ RETURNS numeric
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_area NUMERIC;
+v_score NUMERIC;
+BEGIN
+SELECT app.actor_total_area(p_actor) INTO v_area;
+v_score:=LEAST(100,GREATEST(0,v_area*10));
+RETURN round(v_score,2);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.refresh_pulse_score(p_actor uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+INSERT INTO pulse_scores(actor_id, overall_score, calculated_at)
+VALUES(p_actor, app.calculate_pulse_score(p_actor), NOW())
+ON CONFLICT DO NOTHING;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.refresh_actor_score()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+    PERFORM app.refresh_pulse_score(NEW.actor_id);
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.refresh_all_pulse_scores()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    r RECORD;
+    v_count INTEGER := 0;
+BEGIN
+FOR r IN SELECT id FROM actors LOOP
+    PERFORM app.refresh_pulse_score(r.id);
+    v_count := v_count + 1;
+END LOOP;
+RETURN v_count;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.save_recommendation(p_actor uuid, p_type text, p_title text, p_text text, p_priority text, p_confidence numeric)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_id UUID;
+BEGIN
+INSERT INTO ai_recommendations(actor_id, recommendation_type, title, recommendation, priority, confidence)
+VALUES(p_actor, p_type, p_title, p_text, p_priority, p_confidence)
+RETURNING id INTO v_id;
+RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.get_recommendations(p_actor uuid)
+ RETURNS TABLE(id uuid, title text, recommendation text, priority text, confidence numeric)
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT id, title, recommendation, priority, confidence
+FROM ai_recommendations
+WHERE actor_id=p_actor AND accepted=FALSE
+ORDER BY priority DESC, confidence DESC, created_at DESC;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.accept_recommendation(p_id uuid)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+UPDATE ai_recommendations SET accepted=TRUE, accepted_at=NOW() WHERE id=p_id;
+$function$;
+
+-- ---------- WhatsApp / conversation / memory ----------
+
+CREATE OR REPLACE FUNCTION app.start_session(p_actor uuid, p_phone text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_session UUID;
+BEGIN
+INSERT INTO whatsapp_sessions(actor_id, phone, session_status)
+VALUES(p_actor, app.normalize_phone(p_phone), 'active')
+RETURNING id INTO v_session;
+RETURN v_session;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.save_message(p_session uuid, p_actor uuid, p_direction text, p_type text, p_text text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_message UUID;
+BEGIN
+INSERT INTO whatsapp_messages(session_id, actor_id, direction, message_type, text_body)
+VALUES(p_session, p_actor, p_direction, p_type, p_text)
+RETURNING id INTO v_message;
+RETURN v_message;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.save_ai_response(p_session uuid, p_actor uuid, p_intent text, p_confidence numeric, p_response text, p_model text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_id UUID;
+BEGIN
+INSERT INTO ai_conversations(session_id, actor_id, intent, confidence, ai_response, model_name)
+VALUES(p_session, p_actor, p_intent, p_confidence, p_response, p_model)
+RETURNING id INTO v_id;
+RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.save_summary(p_conversation uuid, p_actor uuid, p_summary text, p_language text, p_sentiment text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_id UUID;
+BEGIN
+INSERT INTO conversation_summaries(conversation_id, actor_id, summary, detected_language, sentiment)
+VALUES(p_conversation, p_actor, p_summary, p_language, p_sentiment)
+RETURNING id INTO v_id;
+RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.last_conversation(p_actor uuid)
+ RETURNS TABLE(intent text, response text, created timestamp with time zone)
+ LANGUAGE sql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT intent, ai_response, created_at
+FROM ai_conversations
+WHERE actor_id=p_actor
+ORDER BY created_at DESC
+LIMIT 1;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.touch_conversation()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+UPDATE conversations SET updated_at=NOW() WHERE id=NEW.session_id;
+RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.close_inactive_sessions()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_count INTEGER;
+BEGIN
+UPDATE whatsapp_sessions
+SET session_status='closed'
+WHERE session_status='active' AND updated_at < NOW() - INTERVAL '24 hours';
+GET DIAGNOSTICS v_count = ROW_COUNT;
+RETURN v_count;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.remember(p_actor uuid, p_key text, p_value jsonb, p_confidence numeric DEFAULT 1.0)
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+INSERT INTO actor_memory(actor_id, memory_key, memory_value, confidence)
+VALUES(p_actor, p_key, p_value, p_confidence)
+ON CONFLICT(actor_id,memory_key)
+DO UPDATE SET memory_value=EXCLUDED.memory_value, confidence=EXCLUDED.confidence, updated_at=NOW();
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.save_memory(p_actor uuid, p_key text, p_value jsonb)
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+INSERT INTO actor_memory(actor_id, memory_key, memory_value)
+VALUES(p_actor, p_key, p_value)
+ON CONFLICT(actor_id,memory_key)
+DO UPDATE SET memory_value=EXCLUDED.memory_value, updated_at=NOW();
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.get_memory(p_actor uuid, p_key text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT memory_value FROM actor_memory WHERE actor_id=p_actor AND memory_key=p_key;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.recall(p_actor uuid, p_key text)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT memory_value FROM actor_memory WHERE actor_id=p_actor AND memory_key=p_key;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.forget(p_actor uuid, p_key text)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DELETE FROM actor_memory WHERE actor_id=p_actor AND memory_key=p_key;
+$function$;
+
+-- ---------- Dashboards / reporting ----------
+
+CREATE OR REPLACE FUNCTION app.actor_dashboard(p_actor uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT jsonb_build_object(
+  'farms', (SELECT COUNT(*) FROM farms WHERE actor_id=p_actor),
+  'total_area', (SELECT COALESCE(SUM(area_ha),0) FROM farms WHERE actor_id=p_actor),
+  'crop_seasons', (SELECT COUNT(*) FROM crop_seasons cs JOIN farms f ON f.id=cs.farm_id WHERE f.actor_id=p_actor),
+  'recommendations', (SELECT COUNT(*) FROM ai_recommendations WHERE actor_id=p_actor AND accepted=FALSE),
+  'activities', (SELECT COUNT(*) FROM activities WHERE actor_id=p_actor),
+  'pulse_score', (SELECT MAX(overall_score) FROM pulse_scores WHERE actor_id=p_actor)
+);
+$function$;
+
+CREATE OR REPLACE FUNCTION app.dashboard_summary(p_org uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT jsonb_build_object(
+  'actors', (SELECT COUNT(*) FROM actors WHERE organization_id=p_org),
+  'farms', (SELECT COUNT(*) FROM farms f JOIN actors a ON a.id=f.actor_id WHERE a.organization_id=p_org),
+  'projects', (SELECT COUNT(*) FROM projects WHERE organization_id=p_org),
+  'interventions', (SELECT COUNT(*) FROM interventions i JOIN projects p ON p.id=i.project_id WHERE p.organization_id=p_org)
+);
+$function$;
+
+CREATE OR REPLACE FUNCTION app.organization_dashboard(p_org uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT jsonb_build_object(
+  'actors', (SELECT COUNT(*) FROM actors WHERE organization_id=p_org),
+  'farms', (SELECT COUNT(*) FROM farms f JOIN actors a ON a.id=f.actor_id WHERE a.organization_id=p_org),
+  'projects', (SELECT COUNT(*) FROM projects WHERE organization_id=p_org),
+  'interventions', (SELECT COUNT(*) FROM interventions i JOIN projects p ON p.id=i.project_id WHERE p.organization_id=p_org),
+  'beneficiaries', (SELECT COUNT(*) FROM beneficiaries b JOIN interventions i ON b.intervention_id=i.id JOIN projects p ON p.id=i.project_id WHERE p.organization_id=p_org)
+);
+$function$;
+
+CREATE OR REPLACE FUNCTION app.organization_statistics(p_org uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+SELECT jsonb_build_object(
+  'actors', (SELECT COUNT(*) FROM actors WHERE organization_id=p_org),
+  'farms', (SELECT COUNT(*) FROM farms f JOIN actors a ON a.id=f.actor_id WHERE a.organization_id=p_org),
+  'total_area', (SELECT COALESCE(SUM(f.area_ha),0) FROM farms f JOIN actors a ON a.id=f.actor_id WHERE a.organization_id=p_org),
+  'projects', (SELECT COUNT(*) FROM projects WHERE organization_id=p_org),
+  'interventions', (SELECT COUNT(*) FROM interventions i JOIN projects p ON p.id=i.project_id WHERE p.organization_id=p_org)
+);
+$function$;
+
+CREATE OR REPLACE FUNCTION app.refresh_dashboard()
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+    REFRESH MATERIALIZED VIEW mv_dashboard_summary;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.refresh_all_dashboards()
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+REFRESH MATERIALIZED VIEW mv_dashboard_summary;
+END;
+$function$;
+
+-- ---------- Notifications / platform ops ----------
+
+CREATE OR REPLACE FUNCTION app.queue_notification(p_actor uuid, p_channel text, p_subject text, p_message text, p_priority text DEFAULT 'normal'::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    v_id UUID;
+BEGIN
+INSERT INTO notification_queue(actor_id, notification_type, channel, subject, message, priority)
+VALUES(p_actor, 'general', p_channel, p_subject, p_message, p_priority)
+RETURNING id INTO v_id;
+RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.log_activity(p_actor uuid, p_org uuid, p_type text, p_source text, p_payload jsonb DEFAULT '{}'::jsonb)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_id UUID;
+BEGIN
+INSERT INTO activities(actor_id, organization_id, activity_type, source, payload)
+VALUES(p_actor, p_org, p_type, p_source, p_payload)
+RETURNING id INTO v_id;
+RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.write_audit_log(p_actor uuid, p_user uuid, p_action text, p_table text, p_record uuid, p_metadata jsonb DEFAULT '{}'::jsonb)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    v_id UUID;
+BEGIN
+INSERT INTO audit_logs(actor_id, user_id, action, table_name, record_id, metadata)
+VALUES(p_actor, p_user, p_action, p_table, p_record, p_metadata)
+RETURNING id INTO v_id;
+RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.log_api_usage(p_client uuid, p_endpoint text, p_method text, p_status integer, p_latency integer)
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+INSERT INTO api_usage_logs(client_id, endpoint, request_method, response_code, latency_ms)
+VALUES(p_client, p_endpoint, p_method, p_status, p_latency);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.record_error(p_source text, p_code text, p_message text, p_stack text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    v_id UUID;
+BEGIN
+INSERT INTO error_logs(source, error_code, error_message, stack_trace)
+VALUES(p_source, p_code, p_message, p_stack)
+RETURNING id INTO v_id;
+RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.record_metric(p_name text, p_value numeric, p_unit text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+    v_id UUID;
+BEGIN
+INSERT INTO platform_metrics(metric_name, metric_value, metric_unit)
+VALUES(p_name, p_value, p_unit)
+RETURNING id INTO v_id;
+RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.database_health()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+DECLARE
+v_result JSONB;
+BEGIN
+SELECT jsonb_build_object(
+  'actors', (SELECT COUNT(*) FROM actors),
+  'farms', (SELECT COUNT(*) FROM farms),
+  'organizations', (SELECT COUNT(*) FROM organizations),
+  'projects', (SELECT COUNT(*) FROM projects),
+  'interventions', (SELECT COUNT(*) FROM interventions),
+  'users', (SELECT COUNT(*) FROM users),
+  'ai_models', (SELECT COUNT(*) FROM ai_models),
+  'weather_stations', (SELECT COUNT(*) FROM weather_stations),
+  'whatsapp_sessions', (SELECT COUNT(*) FROM whatsapp_sessions),
+  'timestamp', NOW()
+) INTO v_result;
+INSERT INTO database_health_logs(status, details) VALUES('healthy', v_result);
+RETURN v_result;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.run_maintenance()
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+VACUUM ANALYZE;
+REFRESH MATERIALIZED VIEW mv_dashboard_summary;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.optimize_database()
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+ANALYZE actors;
+ANALYZE farms;
+ANALYZE crop_seasons;
+ANALYZE market_prices;
+ANALYZE weather_observations;
+ANALYZE whatsapp_messages;
+ANALYZE ai_conversations;
+ANALYZE activities;
+END;
+$function$;
+
+-- ---------- Auth bootstrap ----------
+-- NOTE: two trigger functions currently coexist on auth.users (handle_new_user
+-- and zzz_bootstrap_cultivate_admin). See README for the reconciliation plan
+-- before onboarding coalition partners beyond the initial platform_admin.
+
+CREATE OR REPLACE FUNCTION app.handle_new_user()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+BEGIN
+INSERT INTO users (auth_user_id, username, active)
+VALUES (NEW.id, NEW.email, TRUE)
+ON CONFLICT(auth_user_id) DO NOTHING;
+RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION app.zzz_bootstrap_cultivate_admin()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'app', 'public', 'pg_temp'
+AS $function$
+declare
+  v_org_id uuid := '6f727364-61e6-465e-8991-e96c9ef0cbfa'; -- Cultivate Integrated Services Ltd
+  v_actor_id uuid;
+  v_role_id uuid;
+begin
+  if lower(new.email) = 'ukpoju.andrew@gmail.com' then
+
+    insert into public.actors (organization_id, actor_type, full_name, email, state, lga)
+    values (v_org_id, 'staff', 'Ukpoju Andrew', new.email, 'Kogi', 'Lokoja')
+    returning id into v_actor_id;
+
+    update public.users
+    set actor_id = v_actor_id
+    where auth_user_id = new.id;
+
+    insert into public.organization_members (organization_id, actor_id, role)
+    values (v_org_id, v_actor_id, 'admin')
+    on conflict do nothing;
+
+    select id into v_role_id from public.roles where name = 'platform_admin';
+
+    if v_role_id is not null then
+      insert into public.user_roles (user_id, role_id)
+      select u.id, v_role_id
+      from public.users u
+      where u.auth_user_id = new.id
+      on conflict do nothing;
+    end if;
+
+  end if;
+
+  return new;
+end;
+$function$;
