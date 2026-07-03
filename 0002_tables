@@ -1,0 +1,1129 @@
+-- ============================================================
+-- 0002: Tables (60+ tables, reconstructed from live schema)
+-- ============================================================
+
+CREATE TABLE public.activities (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  organization_id uuid,
+  activity_type text NOT NULL,
+  source text,
+  payload jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.actor_addresses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  address_type text,
+  country text DEFAULT 'Nigeria'::text,
+  state text,
+  lga text,
+  ward text,
+  community text,
+  address text,
+  latitude double precision,
+  longitude double precision,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.actor_contacts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  contact_name text NOT NULL,
+  relationship text,
+  phone text,
+  email citext,
+  is_primary boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.actor_documents (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  document_type text NOT NULL,
+  document_number text,
+  storage_path text,
+  verified boolean DEFAULT false,
+  verified_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.actor_memory (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  memory_key text NOT NULL,
+  memory_value jsonb NOT NULL,
+  confidence numeric(5,2),
+  source text,
+  last_verified timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.actor_opportunities (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  opportunity_type text,
+  title text,
+  score numeric(6,2),
+  priority text,
+  expires_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.actor_risk_scores (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  climate_risk numeric(6,2),
+  production_risk numeric(6,2),
+  financial_risk numeric(6,2),
+  market_risk numeric(6,2),
+  digital_risk numeric(6,2),
+  overall_risk numeric(6,2),
+  calculated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.actor_tags (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  tag text NOT NULL,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.actors (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  actor_number text DEFAULT app.generate_actor_number(),
+  actor_type actor_type NOT NULL,
+  full_name text NOT NULL,
+  phone text,
+  email citext,
+  gender text,
+  state text,
+  lga text,
+  ward text,
+  community text,
+  primary_crop text,
+  farm_size_ha numeric(12,2),
+  verification_status text DEFAULT 'pending'::text,
+  active boolean NOT NULL DEFAULT true,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  deleted_at timestamp with time zone
+);
+
+CREATE TABLE public.agronomic_advisories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  crop_id uuid,
+  advisory_type text,
+  title text NOT NULL,
+  message text NOT NULL,
+  priority text DEFAULT 'medium'::text,
+  valid_from timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone,
+  delivered boolean DEFAULT false,
+  delivered_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.ai_conversations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id uuid,
+  actor_id uuid NOT NULL,
+  intent text,
+  confidence numeric(5,2),
+  extracted_entities jsonb DEFAULT '{}'::jsonb,
+  ai_response text,
+  model_name text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.ai_feedback (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  recommendation_id uuid,
+  actor_id uuid,
+  helpful boolean,
+  rating integer,
+  comments text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.ai_inference_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  model_id uuid,
+  intent_id uuid,
+  input_tokens integer,
+  output_tokens integer,
+  latency_ms integer,
+  success boolean DEFAULT true,
+  error_message text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.ai_intents (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code text NOT NULL,
+  name text NOT NULL,
+  description text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.ai_models (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  provider text NOT NULL,
+  version text,
+  endpoint text,
+  active boolean DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.ai_recommendations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  recommendation_type text,
+  title text,
+  recommendation text,
+  priority text,
+  confidence numeric(5,2),
+  accepted boolean DEFAULT false,
+  accepted_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.api_clients (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  client_name text NOT NULL,
+  client_key text NOT NULL,
+  active boolean DEFAULT true,
+  last_used_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.api_keys (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  name text NOT NULL,
+  api_key_hash text NOT NULL,
+  active boolean DEFAULT true,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.api_usage_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  endpoint text,
+  request_method text,
+  response_code integer,
+  latency_ms integer,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.apiaries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  apiary_name text,
+  hive_type text,
+  hive_count integer,
+  occupied_hives integer,
+  annual_honey_kg numeric(12,2),
+  latitude double precision,
+  longitude double precision,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.assessments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  assessment_type text NOT NULL,
+  score numeric(8,2),
+  maximum_score numeric(8,2),
+  result text,
+  assessor_id uuid,
+  assessment_date date DEFAULT CURRENT_DATE,
+  notes text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.audit_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  user_id uuid,
+  action text NOT NULL,
+  table_name text,
+  record_id uuid,
+  ip_address text,
+  user_agent text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.backup_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  backup_name text NOT NULL,
+  backup_type text NOT NULL,
+  storage_location text,
+  backup_size_mb numeric(14,2),
+  started_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  success boolean DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.beneficiaries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  intervention_id uuid NOT NULL,
+  actor_id uuid NOT NULL,
+  enrollment_date date DEFAULT CURRENT_DATE,
+  beneficiary_status text DEFAULT 'active'::text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.buyers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  organization_name text NOT NULL,
+  buyer_type text,
+  contact_person text,
+  phone text,
+  email citext,
+  state text,
+  lga text,
+  active boolean DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.climate_risk_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  farm_id uuid,
+  event_type text NOT NULL,
+  severity text,
+  event_date date,
+  description text,
+  estimated_loss numeric(16,2),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.commodity_listings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  commodity text NOT NULL,
+  quantity numeric(14,2),
+  unit text,
+  asking_price numeric(14,2),
+  quality_grade text,
+  availability_date date,
+  status text DEFAULT 'available'::text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.conversation_summaries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  conversation_id uuid,
+  actor_id uuid,
+  summary text,
+  detected_language text,
+  sentiment text,
+  keywords jsonb DEFAULT '[]'::jsonb,
+  generated_by text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.conversations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  session_id uuid,
+  channel text DEFAULT 'whatsapp'::text,
+  title text,
+  status text DEFAULT 'open'::text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.crop_activities (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  crop_season_id uuid NOT NULL,
+  activity_type text NOT NULL,
+  activity_date date NOT NULL,
+  description text,
+  performed_by uuid,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.crop_seasons (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  farm_id uuid NOT NULL,
+  crop_id uuid NOT NULL,
+  season_year integer NOT NULL,
+  season_name text,
+  planting_date date,
+  expected_harvest_date date,
+  actual_harvest_date date,
+  area_ha numeric(12,2),
+  expected_yield numeric(12,2),
+  actual_yield numeric(12,2),
+  status text DEFAULT 'planned'::text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.crops (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  scientific_name text,
+  category text,
+  maturity_days integer,
+  growing_season text,
+  description text,
+  active boolean DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.dashboard_snapshots (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  snapshot_date date NOT NULL,
+  total_actors integer,
+  total_farms integer,
+  total_area_ha numeric(14,2),
+  active_projects integer,
+  active_interventions integer,
+  total_beneficiaries integer,
+  average_pulse_score numeric(6,2),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.database_health_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  checked_at timestamp with time zone DEFAULT now(),
+  status text,
+  details jsonb DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE public.distribution_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  intervention_id uuid,
+  distribution_code text DEFAULT app.generate_distribution_code(),
+  distribution_date date NOT NULL,
+  venue text,
+  distributed_by uuid,
+  status text DEFAULT 'completed'::text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.distribution_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  distribution_event_id uuid NOT NULL,
+  beneficiary_id uuid,
+  item_name text NOT NULL,
+  category text,
+  quantity numeric(12,2),
+  unit text,
+  estimated_value numeric(14,2),
+  received boolean DEFAULT true,
+  received_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.error_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  severity text DEFAULT 'ERROR'::text,
+  source text,
+  error_code text,
+  error_message text,
+  stack_trace text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.farm_inputs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  crop_season_id uuid NOT NULL,
+  input_type text,
+  product_name text,
+  supplier text,
+  quantity numeric(12,2),
+  unit text,
+  unit_cost numeric(12,2),
+  total_cost numeric(14,2),
+  application_date date,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.farm_plots (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  farm_id uuid NOT NULL,
+  plot_name text,
+  area_ha numeric(12,2),
+  soil_type text,
+  irrigation boolean DEFAULT false,
+  latitude double precision,
+  longitude double precision,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.farms (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  farm_name text NOT NULL,
+  commodity text,
+  latitude double precision,
+  longitude double precision,
+  area_ha numeric(12,2),
+  verified boolean DEFAULT false,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.financial_institutions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_name text NOT NULL,
+  institution_type text,
+  phone text,
+  email citext,
+  website text,
+  state text,
+  active boolean DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.harvests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  crop_season_id uuid NOT NULL,
+  harvest_date date,
+  quantity numeric(12,2),
+  unit text,
+  moisture_percent numeric(5,2),
+  quality_grade text,
+  storage_location text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.household_members (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  household_id uuid NOT NULL,
+  full_name text NOT NULL,
+  relationship text,
+  gender text,
+  date_of_birth date,
+  occupation text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.households (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  household_size integer,
+  dependents integer,
+  annual_income numeric(14,2),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.input_suppliers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  business_name text NOT NULL,
+  supplier_type text,
+  phone text,
+  email citext,
+  state text,
+  lga text,
+  products jsonb DEFAULT '[]'::jsonb,
+  active boolean DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.insurance_policies (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  provider text,
+  policy_number text,
+  insurance_type text,
+  insured_value numeric(16,2),
+  premium numeric(14,2),
+  start_date date,
+  end_date date,
+  status text DEFAULT 'active'::text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.interventions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  project_id uuid,
+  intervention_name text NOT NULL,
+  intervention_type text,
+  description text,
+  target_actors integer,
+  budget numeric(16,2),
+  status text DEFAULT 'planned'::text,
+  start_date date,
+  end_date date,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.job_execution_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  job_id uuid,
+  started_at timestamp with time zone DEFAULT now(),
+  finished_at timestamp with time zone,
+  success boolean,
+  records_processed integer DEFAULT 0,
+  error_message text,
+  metadata jsonb DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE public.livestock (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  species text,
+  breed text,
+  production_system text,
+  quantity integer,
+  estimated_value numeric(14,2),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.loans (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  institution_id uuid,
+  loan_type text,
+  amount numeric(16,2),
+  interest_rate numeric(6,2),
+  disbursement_date date,
+  maturity_date date,
+  outstanding_balance numeric(16,2),
+  status text DEFAULT 'active'::text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.maintenance_windows (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  scheduled_start timestamp with time zone NOT NULL,
+  scheduled_end timestamp with time zone NOT NULL,
+  completed boolean DEFAULT false,
+  notes text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.market_prices (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  commodity text NOT NULL,
+  market_name text NOT NULL,
+  state text,
+  lga text,
+  unit text,
+  price numeric(14,2) NOT NULL,
+  currency text DEFAULT 'NGN'::text,
+  observed_on date NOT NULL,
+  source text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.media_attachments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  message_id uuid,
+  storage_path text,
+  media_type text,
+  mime_type text,
+  file_name text,
+  file_size bigint,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.monitoring_visits (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  farm_id uuid,
+  officer_id uuid,
+  visit_date date NOT NULL,
+  visit_type text,
+  findings text,
+  recommendations text,
+  latitude double precision,
+  longitude double precision,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.notification_queue (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  notification_type text NOT NULL,
+  channel text NOT NULL,
+  recipient text,
+  subject text,
+  message text NOT NULL,
+  status text DEFAULT 'pending'::text,
+  priority text DEFAULT 'normal'::text,
+  scheduled_at timestamp with time zone DEFAULT now(),
+  sent_at timestamp with time zone,
+  retry_count integer DEFAULT 0,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  title text NOT NULL,
+  body text NOT NULL,
+  notification_type text,
+  status text DEFAULT 'pending'::text,
+  sent_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.opportunities (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  title text NOT NULL,
+  opportunity_type text,
+  description text,
+  eligibility jsonb,
+  opening_date date,
+  closing_date date,
+  status text DEFAULT 'open'::text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.opportunity_matches (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  opportunity_id uuid,
+  actor_id uuid,
+  score numeric(5,2),
+  status text DEFAULT 'matched'::text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.organization_members (
+  organization_id uuid NOT NULL,
+  actor_id uuid NOT NULL,
+  role text,
+  joined_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.organizations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  short_name text,
+  organization_type text NOT NULL,
+  registration_number text,
+  email citext,
+  phone text,
+  website text,
+  country text DEFAULT 'Nigeria'::text,
+  state text,
+  lga text,
+  address text,
+  logo_url text,
+  active boolean NOT NULL DEFAULT true,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  deleted_at timestamp with time zone
+);
+
+CREATE TABLE public.outcome_indicators (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid,
+  indicator_name text NOT NULL,
+  indicator_type text,
+  unit text,
+  baseline numeric,
+  target numeric,
+  current_value numeric,
+  reporting_period text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.pest_disease_reports (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  farm_id uuid,
+  crop_id uuid,
+  report_date date DEFAULT CURRENT_DATE,
+  pest_name text,
+  disease_name text,
+  severity text,
+  affected_area_ha numeric(10,2),
+  recommended_action text,
+  status text DEFAULT 'reported'::text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.platform_info (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  platform_name text NOT NULL,
+  platform_version text NOT NULL,
+  environment text NOT NULL,
+  database_version text,
+  deployed_at timestamp with time zone DEFAULT now(),
+  metadata jsonb DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE public.platform_metrics (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  metric_name text NOT NULL,
+  metric_value numeric,
+  metric_unit text,
+  recorded_at timestamp with time zone DEFAULT now(),
+  metadata jsonb DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE public.production_costs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  crop_season_id uuid NOT NULL,
+  cost_category text,
+  description text,
+  amount numeric(14,2),
+  transaction_date date,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.projects (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL,
+  project_code text DEFAULT app.generate_project_code(),
+  project_name text NOT NULL,
+  donor text,
+  project_type text,
+  status text DEFAULT 'planning'::text,
+  start_date date,
+  end_date date,
+  budget numeric(16,2),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.pulse_scores (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  productivity_score numeric(6,2),
+  resilience_score numeric(6,2),
+  financial_score numeric(6,2),
+  digital_score numeric(6,2),
+  sustainability_score numeric(6,2),
+  overall_score numeric(6,2),
+  calculated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.purchase_offers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  buyer_id uuid,
+  actor_id uuid,
+  commodity text NOT NULL,
+  quantity numeric(14,2),
+  unit text,
+  offered_price numeric(14,2),
+  status text DEFAULT 'open'::text,
+  expires_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.recommendations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  intervention_id uuid,
+  recommendation_type text,
+  title text,
+  recommendation text,
+  priority text,
+  status text DEFAULT 'pending'::text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.roles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.savings_group_members (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  group_id uuid,
+  actor_id uuid,
+  joined_on date DEFAULT CURRENT_DATE,
+  role text,
+  active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.savings_groups (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  group_name text NOT NULL,
+  state text,
+  lga text,
+  meeting_frequency text,
+  created_by uuid,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.scheduled_jobs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  job_name text NOT NULL,
+  description text,
+  cron_expression text,
+  enabled boolean DEFAULT true,
+  last_run timestamp with time zone,
+  next_run timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.schema_versions (
+  version text NOT NULL,
+  description text,
+  installed_at timestamp with time zone DEFAULT now(),
+  installed_by text DEFAULT CURRENT_USER
+);
+
+CREATE TABLE public.soil_tests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  farm_id uuid,
+  sampled_by uuid,
+  sample_date date,
+  ph numeric(4,2),
+  nitrogen numeric(8,2),
+  phosphorus numeric(8,2),
+  potassium numeric(8,2),
+  organic_matter numeric(8,2),
+  laboratory text,
+  recommendation text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.survey_answers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  response_id uuid NOT NULL,
+  question_id uuid NOT NULL,
+  answer_text text,
+  answer_number numeric,
+  answer_boolean boolean,
+  answer_json jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.survey_questions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  section_id uuid NOT NULL,
+  question_code text,
+  question_text text NOT NULL,
+  question_type text NOT NULL,
+  required boolean DEFAULT false,
+  options jsonb DEFAULT '[]'::jsonb,
+  validation jsonb DEFAULT '{}'::jsonb,
+  display_order integer NOT NULL,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.survey_responses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  survey_id uuid NOT NULL,
+  actor_id uuid NOT NULL,
+  enumerator_id uuid,
+  status text DEFAULT 'in_progress'::text,
+  started_at timestamp with time zone DEFAULT now(),
+  submitted_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.survey_sections (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  survey_id uuid NOT NULL,
+  section_name text NOT NULL,
+  display_order integer NOT NULL,
+  description text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.surveys (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  survey_code text DEFAULT app.generate_survey_code(),
+  organization_id uuid,
+  title text NOT NULL,
+  description text,
+  survey_type text,
+  version integer DEFAULT 1,
+  active boolean DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.system_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  event_type text NOT NULL,
+  severity text DEFAULT 'INFO'::text,
+  source text,
+  message text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.system_settings (
+  key text NOT NULL,
+  value jsonb,
+  description text,
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.user_roles (
+  user_id uuid NOT NULL,
+  role_id uuid NOT NULL,
+  assigned_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.users (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  auth_user_id uuid,
+  username text,
+  password_hash text,
+  last_login timestamp with time zone,
+  active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.voice_notes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  message_id uuid NOT NULL,
+  storage_path text,
+  duration_seconds integer,
+  mime_type text,
+  processed boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.voice_transcripts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  voice_note_id uuid NOT NULL,
+  transcript text,
+  language text,
+  confidence numeric(5,2),
+  engine text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.weather_forecasts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  station_id uuid,
+  forecast_date date NOT NULL,
+  min_temp_c numeric(6,2),
+  max_temp_c numeric(6,2),
+  expected_rainfall_mm numeric(8,2),
+  weather_condition text,
+  confidence numeric(5,2),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.weather_observations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  station_id uuid,
+  observation_time timestamp with time zone NOT NULL,
+  temperature_c numeric(6,2),
+  humidity_percent numeric(6,2),
+  rainfall_mm numeric(8,2),
+  wind_speed_ms numeric(8,2),
+  wind_direction text,
+  pressure_hpa numeric(8,2),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.weather_stations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  station_code text,
+  station_name text NOT NULL,
+  provider text,
+  state text,
+  lga text,
+  latitude double precision,
+  longitude double precision,
+  elevation_m numeric(10,2),
+  active boolean DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.whatsapp_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL,
+  actor_id uuid,
+  direction text NOT NULL,
+  message_type text NOT NULL,
+  whatsapp_message_id text,
+  text_body text,
+  media_url text,
+  media_type text,
+  media_size bigint,
+  delivery_status text DEFAULT 'received'::text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.whatsapp_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_id uuid NOT NULL,
+  organization_id uuid,
+  phone text NOT NULL,
+  session_status text DEFAULT 'active'::text,
+  started_at timestamp with time zone DEFAULT now(),
+  last_activity_at timestamp with time zone DEFAULT now(),
+  ended_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb
+);
