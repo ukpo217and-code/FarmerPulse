@@ -1,0 +1,475 @@
+-- ============================================================
+-- 0003: Constraints (PK/FK/UNIQUE/CHECK) and indexes
+-- ============================================================
+
+-- ---------- Constraints ----------
+
+ALTER TABLE public.activities ADD CONSTRAINT activities_pkey PRIMARY KEY (id);
+ALTER TABLE public.activities ADD CONSTRAINT activities_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.activities ADD CONSTRAINT activities_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+
+ALTER TABLE public.actor_addresses ADD CONSTRAINT actor_addresses_pkey PRIMARY KEY (id);
+ALTER TABLE public.actor_addresses ADD CONSTRAINT actor_addresses_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.actor_contacts ADD CONSTRAINT actor_contacts_pkey PRIMARY KEY (id);
+ALTER TABLE public.actor_contacts ADD CONSTRAINT actor_contacts_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.actor_documents ADD CONSTRAINT actor_documents_pkey PRIMARY KEY (id);
+ALTER TABLE public.actor_documents ADD CONSTRAINT actor_documents_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.actor_memory ADD CONSTRAINT actor_memory_pkey PRIMARY KEY (id);
+ALTER TABLE public.actor_memory ADD CONSTRAINT actor_memory_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.actor_memory ADD CONSTRAINT actor_memory_actor_id_memory_key_key UNIQUE (actor_id, memory_key);
+
+ALTER TABLE public.actor_opportunities ADD CONSTRAINT actor_opportunities_pkey PRIMARY KEY (id);
+ALTER TABLE public.actor_opportunities ADD CONSTRAINT actor_opportunities_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.actor_risk_scores ADD CONSTRAINT actor_risk_scores_pkey PRIMARY KEY (id);
+ALTER TABLE public.actor_risk_scores ADD CONSTRAINT actor_risk_scores_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.actor_tags ADD CONSTRAINT actor_tags_pkey PRIMARY KEY (id);
+ALTER TABLE public.actor_tags ADD CONSTRAINT actor_tags_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.actor_tags ADD CONSTRAINT actor_tags_actor_id_tag_key UNIQUE (actor_id, tag);
+
+ALTER TABLE public.actors ADD CONSTRAINT actors_pkey PRIMARY KEY (id);
+ALTER TABLE public.actors ADD CONSTRAINT actors_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+ALTER TABLE public.actors ADD CONSTRAINT actors_actor_number_key UNIQUE (actor_number);
+
+ALTER TABLE public.agronomic_advisories ADD CONSTRAINT agronomic_advisories_pkey PRIMARY KEY (id);
+ALTER TABLE public.agronomic_advisories ADD CONSTRAINT agronomic_advisories_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.agronomic_advisories ADD CONSTRAINT agronomic_advisories_crop_id_fkey FOREIGN KEY (crop_id) REFERENCES crops(id) ON DELETE SET NULL;
+
+ALTER TABLE public.ai_conversations ADD CONSTRAINT ai_conversations_pkey PRIMARY KEY (id);
+ALTER TABLE public.ai_conversations ADD CONSTRAINT ai_conversations_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.ai_conversations ADD CONSTRAINT ai_conversations_session_id_fkey FOREIGN KEY (session_id) REFERENCES whatsapp_sessions(id) ON DELETE CASCADE;
+
+ALTER TABLE public.ai_feedback ADD CONSTRAINT ai_feedback_pkey PRIMARY KEY (id);
+ALTER TABLE public.ai_feedback ADD CONSTRAINT ai_feedback_rating_check CHECK (((rating >= 1) AND (rating <= 5)));
+ALTER TABLE public.ai_feedback ADD CONSTRAINT ai_feedback_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.ai_feedback ADD CONSTRAINT ai_feedback_recommendation_id_fkey FOREIGN KEY (recommendation_id) REFERENCES ai_recommendations(id) ON DELETE CASCADE;
+
+ALTER TABLE public.ai_inference_logs ADD CONSTRAINT ai_inference_logs_pkey PRIMARY KEY (id);
+ALTER TABLE public.ai_inference_logs ADD CONSTRAINT ai_inference_logs_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE SET NULL;
+ALTER TABLE public.ai_inference_logs ADD CONSTRAINT ai_inference_logs_intent_id_fkey FOREIGN KEY (intent_id) REFERENCES ai_intents(id) ON DELETE SET NULL;
+ALTER TABLE public.ai_inference_logs ADD CONSTRAINT ai_inference_logs_model_id_fkey FOREIGN KEY (model_id) REFERENCES ai_models(id) ON DELETE SET NULL;
+
+ALTER TABLE public.ai_intents ADD CONSTRAINT ai_intents_pkey PRIMARY KEY (id);
+ALTER TABLE public.ai_intents ADD CONSTRAINT ai_intents_code_key UNIQUE (code);
+
+ALTER TABLE public.ai_models ADD CONSTRAINT ai_models_pkey PRIMARY KEY (id);
+ALTER TABLE public.ai_models ADD CONSTRAINT ai_models_name_key UNIQUE (name);
+
+ALTER TABLE public.ai_recommendations ADD CONSTRAINT ai_recommendations_pkey PRIMARY KEY (id);
+ALTER TABLE public.ai_recommendations ADD CONSTRAINT ai_recommendations_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.api_clients ADD CONSTRAINT api_clients_pkey PRIMARY KEY (id);
+ALTER TABLE public.api_clients ADD CONSTRAINT api_clients_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+ALTER TABLE public.api_clients ADD CONSTRAINT api_clients_client_key_key UNIQUE (client_key);
+
+ALTER TABLE public.api_keys ADD CONSTRAINT api_keys_pkey PRIMARY KEY (id);
+ALTER TABLE public.api_keys ADD CONSTRAINT api_keys_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+
+ALTER TABLE public.api_usage_logs ADD CONSTRAINT api_usage_logs_pkey PRIMARY KEY (id);
+ALTER TABLE public.api_usage_logs ADD CONSTRAINT api_usage_logs_client_id_fkey FOREIGN KEY (client_id) REFERENCES api_clients(id) ON DELETE CASCADE;
+
+ALTER TABLE public.apiaries ADD CONSTRAINT apiaries_pkey PRIMARY KEY (id);
+ALTER TABLE public.apiaries ADD CONSTRAINT apiaries_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.assessments ADD CONSTRAINT assessments_pkey PRIMARY KEY (id);
+ALTER TABLE public.assessments ADD CONSTRAINT assessments_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.assessments ADD CONSTRAINT assessments_assessor_id_fkey FOREIGN KEY (assessor_id) REFERENCES actors(id);
+
+ALTER TABLE public.audit_logs ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
+ALTER TABLE public.audit_logs ADD CONSTRAINT audit_logs_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id);
+ALTER TABLE public.audit_logs ADD CONSTRAINT audit_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id);
+
+ALTER TABLE public.backup_history ADD CONSTRAINT backup_history_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.beneficiaries ADD CONSTRAINT beneficiaries_pkey PRIMARY KEY (id);
+ALTER TABLE public.beneficiaries ADD CONSTRAINT beneficiaries_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.beneficiaries ADD CONSTRAINT beneficiaries_intervention_id_fkey FOREIGN KEY (intervention_id) REFERENCES interventions(id) ON DELETE CASCADE;
+ALTER TABLE public.beneficiaries ADD CONSTRAINT beneficiaries_intervention_id_actor_id_key UNIQUE (intervention_id, actor_id);
+
+ALTER TABLE public.buyers ADD CONSTRAINT buyers_pkey PRIMARY KEY (id);
+ALTER TABLE public.buyers ADD CONSTRAINT buyers_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE SET NULL;
+
+ALTER TABLE public.climate_risk_events ADD CONSTRAINT climate_risk_events_pkey PRIMARY KEY (id);
+ALTER TABLE public.climate_risk_events ADD CONSTRAINT climate_risk_events_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE SET NULL;
+ALTER TABLE public.climate_risk_events ADD CONSTRAINT climate_risk_events_farm_id_fkey FOREIGN KEY (farm_id) REFERENCES farms(id) ON DELETE SET NULL;
+
+ALTER TABLE public.commodity_listings ADD CONSTRAINT commodity_listings_pkey PRIMARY KEY (id);
+ALTER TABLE public.commodity_listings ADD CONSTRAINT commodity_listings_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.conversation_summaries ADD CONSTRAINT conversation_summaries_pkey PRIMARY KEY (id);
+ALTER TABLE public.conversation_summaries ADD CONSTRAINT conversation_summaries_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.conversation_summaries ADD CONSTRAINT conversation_summaries_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
+
+ALTER TABLE public.conversations ADD CONSTRAINT conversations_pkey PRIMARY KEY (id);
+ALTER TABLE public.conversations ADD CONSTRAINT conversations_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.conversations ADD CONSTRAINT conversations_session_id_fkey FOREIGN KEY (session_id) REFERENCES whatsapp_sessions(id) ON DELETE CASCADE;
+
+ALTER TABLE public.crop_activities ADD CONSTRAINT crop_activities_pkey PRIMARY KEY (id);
+ALTER TABLE public.crop_activities ADD CONSTRAINT crop_activities_crop_season_id_fkey FOREIGN KEY (crop_season_id) REFERENCES crop_seasons(id) ON DELETE CASCADE;
+ALTER TABLE public.crop_activities ADD CONSTRAINT crop_activities_performed_by_fkey FOREIGN KEY (performed_by) REFERENCES actors(id);
+
+ALTER TABLE public.crop_seasons ADD CONSTRAINT crop_seasons_pkey PRIMARY KEY (id);
+ALTER TABLE public.crop_seasons ADD CONSTRAINT crop_seasons_crop_id_fkey FOREIGN KEY (crop_id) REFERENCES crops(id);
+ALTER TABLE public.crop_seasons ADD CONSTRAINT crop_seasons_farm_id_fkey FOREIGN KEY (farm_id) REFERENCES farms(id) ON DELETE CASCADE;
+
+ALTER TABLE public.crops ADD CONSTRAINT crops_pkey PRIMARY KEY (id);
+ALTER TABLE public.crops ADD CONSTRAINT crops_name_key UNIQUE (name);
+
+ALTER TABLE public.dashboard_snapshots ADD CONSTRAINT dashboard_snapshots_pkey PRIMARY KEY (id);
+ALTER TABLE public.dashboard_snapshots ADD CONSTRAINT dashboard_snapshots_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+ALTER TABLE public.dashboard_snapshots ADD CONSTRAINT dashboard_snapshots_organization_id_snapshot_date_key UNIQUE (organization_id, snapshot_date);
+
+ALTER TABLE public.database_health_logs ADD CONSTRAINT database_health_logs_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.distribution_events ADD CONSTRAINT distribution_events_pkey PRIMARY KEY (id);
+ALTER TABLE public.distribution_events ADD CONSTRAINT distribution_events_distributed_by_fkey FOREIGN KEY (distributed_by) REFERENCES actors(id);
+ALTER TABLE public.distribution_events ADD CONSTRAINT distribution_events_intervention_id_fkey FOREIGN KEY (intervention_id) REFERENCES interventions(id) ON DELETE CASCADE;
+
+ALTER TABLE public.distribution_items ADD CONSTRAINT distribution_items_pkey PRIMARY KEY (id);
+ALTER TABLE public.distribution_items ADD CONSTRAINT distribution_items_beneficiary_id_fkey FOREIGN KEY (beneficiary_id) REFERENCES beneficiaries(id) ON DELETE CASCADE;
+ALTER TABLE public.distribution_items ADD CONSTRAINT distribution_items_distribution_event_id_fkey FOREIGN KEY (distribution_event_id) REFERENCES distribution_events(id) ON DELETE CASCADE;
+
+ALTER TABLE public.error_logs ADD CONSTRAINT error_logs_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.farm_inputs ADD CONSTRAINT farm_inputs_pkey PRIMARY KEY (id);
+ALTER TABLE public.farm_inputs ADD CONSTRAINT farm_inputs_crop_season_id_fkey FOREIGN KEY (crop_season_id) REFERENCES crop_seasons(id) ON DELETE CASCADE;
+
+ALTER TABLE public.farm_plots ADD CONSTRAINT farm_plots_pkey PRIMARY KEY (id);
+ALTER TABLE public.farm_plots ADD CONSTRAINT farm_plots_farm_id_fkey FOREIGN KEY (farm_id) REFERENCES farms(id) ON DELETE CASCADE;
+
+ALTER TABLE public.farms ADD CONSTRAINT farms_pkey PRIMARY KEY (id);
+ALTER TABLE public.farms ADD CONSTRAINT farms_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.financial_institutions ADD CONSTRAINT financial_institutions_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.harvests ADD CONSTRAINT harvests_pkey PRIMARY KEY (id);
+ALTER TABLE public.harvests ADD CONSTRAINT harvests_crop_season_id_fkey FOREIGN KEY (crop_season_id) REFERENCES crop_seasons(id) ON DELETE CASCADE;
+
+ALTER TABLE public.household_members ADD CONSTRAINT household_members_pkey PRIMARY KEY (id);
+ALTER TABLE public.household_members ADD CONSTRAINT household_members_household_id_fkey FOREIGN KEY (household_id) REFERENCES households(id) ON DELETE CASCADE;
+
+ALTER TABLE public.households ADD CONSTRAINT households_pkey PRIMARY KEY (id);
+ALTER TABLE public.households ADD CONSTRAINT households_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.input_suppliers ADD CONSTRAINT input_suppliers_pkey PRIMARY KEY (id);
+ALTER TABLE public.input_suppliers ADD CONSTRAINT input_suppliers_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE SET NULL;
+
+ALTER TABLE public.insurance_policies ADD CONSTRAINT insurance_policies_pkey PRIMARY KEY (id);
+ALTER TABLE public.insurance_policies ADD CONSTRAINT insurance_policies_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.interventions ADD CONSTRAINT interventions_pkey PRIMARY KEY (id);
+ALTER TABLE public.interventions ADD CONSTRAINT interventions_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE;
+
+ALTER TABLE public.job_execution_logs ADD CONSTRAINT job_execution_logs_pkey PRIMARY KEY (id);
+ALTER TABLE public.job_execution_logs ADD CONSTRAINT job_execution_logs_job_id_fkey FOREIGN KEY (job_id) REFERENCES scheduled_jobs(id) ON DELETE CASCADE;
+
+ALTER TABLE public.livestock ADD CONSTRAINT livestock_pkey PRIMARY KEY (id);
+ALTER TABLE public.livestock ADD CONSTRAINT livestock_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.loans ADD CONSTRAINT loans_pkey PRIMARY KEY (id);
+ALTER TABLE public.loans ADD CONSTRAINT loans_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.loans ADD CONSTRAINT loans_institution_id_fkey FOREIGN KEY (institution_id) REFERENCES financial_institutions(id) ON DELETE SET NULL;
+
+ALTER TABLE public.maintenance_windows ADD CONSTRAINT maintenance_windows_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.market_prices ADD CONSTRAINT market_prices_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.media_attachments ADD CONSTRAINT media_attachments_pkey PRIMARY KEY (id);
+ALTER TABLE public.media_attachments ADD CONSTRAINT media_attachments_message_id_fkey FOREIGN KEY (message_id) REFERENCES whatsapp_messages(id) ON DELETE CASCADE;
+
+ALTER TABLE public.monitoring_visits ADD CONSTRAINT monitoring_visits_pkey PRIMARY KEY (id);
+ALTER TABLE public.monitoring_visits ADD CONSTRAINT monitoring_visits_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.monitoring_visits ADD CONSTRAINT monitoring_visits_farm_id_fkey FOREIGN KEY (farm_id) REFERENCES farms(id);
+ALTER TABLE public.monitoring_visits ADD CONSTRAINT monitoring_visits_officer_id_fkey FOREIGN KEY (officer_id) REFERENCES actors(id);
+
+ALTER TABLE public.notification_queue ADD CONSTRAINT notification_queue_pkey PRIMARY KEY (id);
+ALTER TABLE public.notification_queue ADD CONSTRAINT notification_queue_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.notifications ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
+ALTER TABLE public.notifications ADD CONSTRAINT notifications_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.opportunities ADD CONSTRAINT opportunities_pkey PRIMARY KEY (id);
+ALTER TABLE public.opportunities ADD CONSTRAINT opportunities_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+
+ALTER TABLE public.opportunity_matches ADD CONSTRAINT opportunity_matches_pkey PRIMARY KEY (id);
+ALTER TABLE public.opportunity_matches ADD CONSTRAINT opportunity_matches_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.opportunity_matches ADD CONSTRAINT opportunity_matches_opportunity_id_fkey FOREIGN KEY (opportunity_id) REFERENCES opportunities(id) ON DELETE CASCADE;
+ALTER TABLE public.opportunity_matches ADD CONSTRAINT opportunity_matches_opportunity_id_actor_id_key UNIQUE (opportunity_id, actor_id);
+
+ALTER TABLE public.organization_members ADD CONSTRAINT organization_members_pkey PRIMARY KEY (organization_id, actor_id);
+ALTER TABLE public.organization_members ADD CONSTRAINT organization_members_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.organization_members ADD CONSTRAINT organization_members_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+
+ALTER TABLE public.organizations ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.outcome_indicators ADD CONSTRAINT outcome_indicators_pkey PRIMARY KEY (id);
+ALTER TABLE public.outcome_indicators ADD CONSTRAINT outcome_indicators_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+
+ALTER TABLE public.pest_disease_reports ADD CONSTRAINT pest_disease_reports_pkey PRIMARY KEY (id);
+ALTER TABLE public.pest_disease_reports ADD CONSTRAINT pest_disease_reports_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.pest_disease_reports ADD CONSTRAINT pest_disease_reports_crop_id_fkey FOREIGN KEY (crop_id) REFERENCES crops(id) ON DELETE SET NULL;
+ALTER TABLE public.pest_disease_reports ADD CONSTRAINT pest_disease_reports_farm_id_fkey FOREIGN KEY (farm_id) REFERENCES farms(id) ON DELETE SET NULL;
+
+ALTER TABLE public.platform_info ADD CONSTRAINT platform_info_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.platform_metrics ADD CONSTRAINT platform_metrics_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.production_costs ADD CONSTRAINT production_costs_pkey PRIMARY KEY (id);
+ALTER TABLE public.production_costs ADD CONSTRAINT production_costs_crop_season_id_fkey FOREIGN KEY (crop_season_id) REFERENCES crop_seasons(id) ON DELETE CASCADE;
+
+ALTER TABLE public.projects ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
+ALTER TABLE public.projects ADD CONSTRAINT projects_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+ALTER TABLE public.projects ADD CONSTRAINT projects_project_code_key UNIQUE (project_code);
+
+ALTER TABLE public.pulse_scores ADD CONSTRAINT pulse_scores_pkey PRIMARY KEY (id);
+ALTER TABLE public.pulse_scores ADD CONSTRAINT pulse_scores_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+
+ALTER TABLE public.purchase_offers ADD CONSTRAINT purchase_offers_pkey PRIMARY KEY (id);
+ALTER TABLE public.purchase_offers ADD CONSTRAINT purchase_offers_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.purchase_offers ADD CONSTRAINT purchase_offers_buyer_id_fkey FOREIGN KEY (buyer_id) REFERENCES buyers(id) ON DELETE CASCADE;
+
+ALTER TABLE public.recommendations ADD CONSTRAINT recommendations_pkey PRIMARY KEY (id);
+ALTER TABLE public.recommendations ADD CONSTRAINT recommendations_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.recommendations ADD CONSTRAINT recommendations_intervention_id_fkey FOREIGN KEY (intervention_id) REFERENCES interventions(id) ON DELETE SET NULL;
+
+ALTER TABLE public.roles ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+ALTER TABLE public.roles ADD CONSTRAINT roles_name_key UNIQUE (name);
+
+ALTER TABLE public.savings_group_members ADD CONSTRAINT savings_group_members_pkey PRIMARY KEY (id);
+ALTER TABLE public.savings_group_members ADD CONSTRAINT savings_group_members_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.savings_group_members ADD CONSTRAINT savings_group_members_group_id_fkey FOREIGN KEY (group_id) REFERENCES savings_groups(id) ON DELETE CASCADE;
+ALTER TABLE public.savings_group_members ADD CONSTRAINT savings_group_members_group_id_actor_id_key UNIQUE (group_id, actor_id);
+
+ALTER TABLE public.savings_groups ADD CONSTRAINT savings_groups_pkey PRIMARY KEY (id);
+ALTER TABLE public.savings_groups ADD CONSTRAINT savings_groups_created_by_fkey FOREIGN KEY (created_by) REFERENCES actors(id);
+
+ALTER TABLE public.scheduled_jobs ADD CONSTRAINT scheduled_jobs_pkey PRIMARY KEY (id);
+ALTER TABLE public.scheduled_jobs ADD CONSTRAINT scheduled_jobs_job_name_key UNIQUE (job_name);
+
+ALTER TABLE public.schema_versions ADD CONSTRAINT schema_versions_pkey PRIMARY KEY (version);
+
+ALTER TABLE public.soil_tests ADD CONSTRAINT soil_tests_pkey PRIMARY KEY (id);
+ALTER TABLE public.soil_tests ADD CONSTRAINT soil_tests_farm_id_fkey FOREIGN KEY (farm_id) REFERENCES farms(id) ON DELETE CASCADE;
+ALTER TABLE public.soil_tests ADD CONSTRAINT soil_tests_sampled_by_fkey FOREIGN KEY (sampled_by) REFERENCES actors(id);
+
+ALTER TABLE public.survey_answers ADD CONSTRAINT survey_answers_pkey PRIMARY KEY (id);
+ALTER TABLE public.survey_answers ADD CONSTRAINT survey_answers_question_id_fkey FOREIGN KEY (question_id) REFERENCES survey_questions(id) ON DELETE CASCADE;
+ALTER TABLE public.survey_answers ADD CONSTRAINT survey_answers_response_id_fkey FOREIGN KEY (response_id) REFERENCES survey_responses(id) ON DELETE CASCADE;
+ALTER TABLE public.survey_answers ADD CONSTRAINT survey_answers_response_id_question_id_key UNIQUE (response_id, question_id);
+
+ALTER TABLE public.survey_questions ADD CONSTRAINT survey_questions_pkey PRIMARY KEY (id);
+ALTER TABLE public.survey_questions ADD CONSTRAINT survey_questions_section_id_fkey FOREIGN KEY (section_id) REFERENCES survey_sections(id) ON DELETE CASCADE;
+ALTER TABLE public.survey_questions ADD CONSTRAINT survey_questions_section_id_display_order_key UNIQUE (section_id, display_order);
+
+ALTER TABLE public.survey_responses ADD CONSTRAINT survey_responses_pkey PRIMARY KEY (id);
+ALTER TABLE public.survey_responses ADD CONSTRAINT survey_responses_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.survey_responses ADD CONSTRAINT survey_responses_enumerator_id_fkey FOREIGN KEY (enumerator_id) REFERENCES actors(id);
+ALTER TABLE public.survey_responses ADD CONSTRAINT survey_responses_survey_id_fkey FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE;
+
+ALTER TABLE public.survey_sections ADD CONSTRAINT survey_sections_pkey PRIMARY KEY (id);
+ALTER TABLE public.survey_sections ADD CONSTRAINT survey_sections_survey_id_fkey FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE;
+ALTER TABLE public.survey_sections ADD CONSTRAINT survey_sections_survey_id_display_order_key UNIQUE (survey_id, display_order);
+
+ALTER TABLE public.surveys ADD CONSTRAINT surveys_pkey PRIMARY KEY (id);
+ALTER TABLE public.surveys ADD CONSTRAINT surveys_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+ALTER TABLE public.surveys ADD CONSTRAINT surveys_survey_code_key UNIQUE (survey_code);
+
+ALTER TABLE public.system_events ADD CONSTRAINT system_events_pkey PRIMARY KEY (id);
+
+ALTER TABLE public.system_settings ADD CONSTRAINT system_settings_pkey PRIMARY KEY (key);
+
+ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id);
+ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE;
+ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.users ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+ALTER TABLE public.users ADD CONSTRAINT users_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.users ADD CONSTRAINT users_auth_user_id_key UNIQUE (auth_user_id);
+ALTER TABLE public.users ADD CONSTRAINT users_username_key UNIQUE (username);
+
+ALTER TABLE public.voice_notes ADD CONSTRAINT voice_notes_pkey PRIMARY KEY (id);
+ALTER TABLE public.voice_notes ADD CONSTRAINT voice_notes_message_id_fkey FOREIGN KEY (message_id) REFERENCES whatsapp_messages(id) ON DELETE CASCADE;
+
+ALTER TABLE public.voice_transcripts ADD CONSTRAINT voice_transcripts_pkey PRIMARY KEY (id);
+ALTER TABLE public.voice_transcripts ADD CONSTRAINT voice_transcripts_voice_note_id_fkey FOREIGN KEY (voice_note_id) REFERENCES voice_notes(id) ON DELETE CASCADE;
+
+ALTER TABLE public.weather_forecasts ADD CONSTRAINT weather_forecasts_pkey PRIMARY KEY (id);
+ALTER TABLE public.weather_forecasts ADD CONSTRAINT weather_forecasts_station_id_fkey FOREIGN KEY (station_id) REFERENCES weather_stations(id) ON DELETE CASCADE;
+
+ALTER TABLE public.weather_observations ADD CONSTRAINT weather_observations_pkey PRIMARY KEY (id);
+ALTER TABLE public.weather_observations ADD CONSTRAINT weather_observations_station_id_fkey FOREIGN KEY (station_id) REFERENCES weather_stations(id) ON DELETE CASCADE;
+
+ALTER TABLE public.weather_stations ADD CONSTRAINT weather_stations_pkey PRIMARY KEY (id);
+ALTER TABLE public.weather_stations ADD CONSTRAINT weather_stations_station_code_key UNIQUE (station_code);
+
+ALTER TABLE public.whatsapp_messages ADD CONSTRAINT whatsapp_messages_pkey PRIMARY KEY (id);
+ALTER TABLE public.whatsapp_messages ADD CONSTRAINT whatsapp_messages_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE SET NULL;
+ALTER TABLE public.whatsapp_messages ADD CONSTRAINT whatsapp_messages_session_id_fkey FOREIGN KEY (session_id) REFERENCES whatsapp_sessions(id) ON DELETE CASCADE;
+ALTER TABLE public.whatsapp_messages ADD CONSTRAINT whatsapp_messages_whatsapp_message_id_key UNIQUE (whatsapp_message_id);
+
+ALTER TABLE public.whatsapp_sessions ADD CONSTRAINT whatsapp_sessions_pkey PRIMARY KEY (id);
+ALTER TABLE public.whatsapp_sessions ADD CONSTRAINT whatsapp_sessions_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE;
+ALTER TABLE public.whatsapp_sessions ADD CONSTRAINT whatsapp_sessions_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+
+-- ---------- Indexes (non-constraint-backed) ----------
+
+CREATE INDEX idx_activity_payload ON public.activities USING gin (payload);
+CREATE INDEX idx_fk_activities_actor ON public.activities USING btree (actor_id);
+CREATE INDEX idx_fk_activities_org ON public.activities USING btree (organization_id);
+CREATE INDEX idx_actor_addresses_actor ON public.actor_addresses USING btree (actor_id);
+CREATE INDEX idx_actor_contacts_actor ON public.actor_contacts USING btree (actor_id);
+CREATE INDEX idx_actor_documents_actor ON public.actor_documents USING btree (actor_id);
+CREATE INDEX idx_actor_memory ON public.actor_memory USING btree (actor_id);
+CREATE INDEX idx_memory_value_gin ON public.actor_memory USING gin (memory_value);
+CREATE INDEX idx_opportunity_actor ON public.actor_opportunities USING btree (actor_id);
+CREATE INDEX idx_risk_actor ON public.actor_risk_scores USING btree (actor_id);
+CREATE INDEX idx_actor_tags_actor ON public.actor_tags USING btree (actor_id);
+CREATE INDEX idx_active_actors ON public.actors USING btree (id) WHERE (active = true);
+CREATE INDEX idx_actor_crop ON public.actors USING btree (primary_crop);
+CREATE INDEX idx_actor_email ON public.actors USING btree (email);
+CREATE INDEX idx_actor_fulltext ON public.actors USING gin (to_tsvector('english'::regconfig, COALESCE(full_name, ''::text)));
+CREATE INDEX idx_actor_lga ON public.actors USING btree (lga);
+CREATE INDEX idx_actor_metadata ON public.actors USING gin (metadata);
+CREATE INDEX idx_actor_org ON public.actors USING btree (organization_id);
+CREATE INDEX idx_actor_phone ON public.actors USING btree (phone);
+CREATE INDEX idx_actor_state ON public.actors USING btree (state);
+CREATE INDEX idx_actor_type ON public.actors USING btree (actor_type);
+CREATE INDEX idx_actors_location ON public.actors USING btree (state, lga);
+CREATE INDEX idx_actors_location_crop ON public.actors USING btree (state, lga, primary_crop);
+CREATE INDEX idx_actors_name ON public.actors USING btree (full_name);
+CREATE INDEX idx_actors_org_crop ON public.actors USING btree (organization_id, primary_crop);
+CREATE INDEX idx_advisory_actor ON public.agronomic_advisories USING btree (actor_id);
+CREATE INDEX idx_advisory_fulltext ON public.agronomic_advisories USING gin (to_tsvector('english'::regconfig, ((COALESCE(title, ''::text) || ' '::text) || COALESCE(message, ''::text))));
+CREATE INDEX idx_fk_agronomic_advisories_crop ON public.agronomic_advisories USING btree (crop_id);
+CREATE INDEX idx_ai_actor ON public.ai_conversations USING btree (actor_id);
+CREATE INDEX idx_ai_actor_created ON public.ai_conversations USING btree (actor_id, created_at DESC);
+CREATE INDEX idx_ai_model_name ON public.ai_conversations USING btree (model_name);
+CREATE INDEX idx_ai_response_fulltext ON public.ai_conversations USING gin (to_tsvector('english'::regconfig, COALESCE(ai_response, ''::text)));
+CREATE INDEX idx_fk_ai_conversations_session ON public.ai_conversations USING btree (session_id);
+CREATE INDEX idx_feedback_actor ON public.ai_feedback USING btree (actor_id);
+CREATE INDEX idx_fk_ai_feedback_recommendation ON public.ai_feedback USING btree (recommendation_id);
+CREATE INDEX idx_ai_logs_intent ON public.ai_inference_logs USING btree (intent_id);
+CREATE INDEX idx_ai_logs_model ON public.ai_inference_logs USING btree (model_id);
+CREATE INDEX idx_inference_actor ON public.ai_inference_logs USING btree (actor_id);
+CREATE INDEX idx_ai_recommendations_actor ON public.ai_recommendations USING btree (actor_id);
+CREATE INDEX idx_fk_api_clients_org ON public.api_clients USING btree (organization_id);
+CREATE INDEX idx_fk_api_keys_org ON public.api_keys USING btree (organization_id);
+CREATE INDEX idx_api_usage_client ON public.api_usage_logs USING btree (client_id);
+CREATE INDEX idx_api_usage_date ON public.api_usage_logs USING btree (created_at);
+CREATE INDEX idx_apiaries_actor ON public.apiaries USING btree (actor_id);
+CREATE INDEX idx_assessments_actor ON public.assessments USING btree (actor_id);
+CREATE INDEX idx_fk_assessments_assessor ON public.assessments USING btree (assessor_id);
+CREATE INDEX idx_audit_action ON public.audit_logs USING btree (action);
+CREATE INDEX idx_audit_actor ON public.audit_logs USING btree (actor_id);
+CREATE INDEX idx_audit_user ON public.audit_logs USING btree (user_id);
+CREATE INDEX idx_backup_completed ON public.backup_history USING btree (completed_at DESC);
+CREATE INDEX idx_beneficiaries_actor ON public.beneficiaries USING btree (actor_id);
+CREATE INDEX idx_beneficiaries_intervention ON public.beneficiaries USING btree (intervention_id);
+CREATE INDEX idx_fk_buyers_actor ON public.buyers USING btree (actor_id);
+CREATE INDEX idx_climate_actor ON public.climate_risk_events USING btree (actor_id);
+CREATE INDEX idx_climate_farm ON public.climate_risk_events USING btree (farm_id);
+CREATE INDEX idx_commodity_actor ON public.commodity_listings USING btree (actor_id);
+CREATE INDEX idx_listing_search ON public.commodity_listings USING gin (to_tsvector('english'::regconfig, COALESCE(commodity, ''::text)));
+CREATE INDEX idx_fk_conversation_summaries_conversation ON public.conversation_summaries USING btree (conversation_id);
+CREATE INDEX idx_summary_actor ON public.conversation_summaries USING btree (actor_id);
+CREATE INDEX idx_conversations_actor ON public.conversations USING btree (actor_id);
+CREATE INDEX idx_fk_conversations_session ON public.conversations USING btree (session_id);
+CREATE INDEX idx_crop_activity_season ON public.crop_activities USING btree (crop_season_id);
+CREATE INDEX idx_fk_crop_activities_performed_by ON public.crop_activities USING btree (performed_by);
+CREATE INDEX idx_crop_seasons_crop ON public.crop_seasons USING btree (crop_id);
+CREATE INDEX idx_crop_seasons_farm ON public.crop_seasons USING btree (farm_id);
+CREATE INDEX idx_crop_seasons_farm_year ON public.crop_seasons USING btree (farm_id, season_year);
+CREATE INDEX idx_crop_seasons_year ON public.crop_seasons USING btree (season_year);
+CREATE INDEX idx_dashboard_org ON public.dashboard_snapshots USING btree (organization_id);
+CREATE INDEX idx_distribution_events_intervention ON public.distribution_events USING btree (intervention_id);
+CREATE INDEX idx_fk_distribution_events_distributed_by ON public.distribution_events USING btree (distributed_by);
+CREATE INDEX idx_distribution_items_event ON public.distribution_items USING btree (distribution_event_id);
+CREATE INDEX idx_fk_distribution_items_beneficiary ON public.distribution_items USING btree (beneficiary_id);
+CREATE INDEX idx_errors_created ON public.error_logs USING btree (created_at DESC);
+CREATE INDEX idx_errors_source ON public.error_logs USING btree (source);
+CREATE INDEX idx_farm_inputs_season ON public.farm_inputs USING btree (crop_season_id);
+CREATE INDEX idx_fk_farm_plots_farm ON public.farm_plots USING btree (farm_id);
+CREATE INDEX idx_farm_metadata ON public.farms USING gin (metadata);
+CREATE INDEX idx_farms_actor ON public.farms USING btree (actor_id);
+CREATE INDEX idx_farms_actor_commodity ON public.farms USING btree (actor_id, commodity);
+CREATE INDEX idx_farms_commodity ON public.farms USING btree (commodity);
+CREATE INDEX idx_farms_verified ON public.farms USING btree (verified);
+CREATE INDEX idx_harvest_season ON public.harvests USING btree (crop_season_id);
+CREATE INDEX idx_fk_household_members_household ON public.household_members USING btree (household_id);
+CREATE INDEX idx_households_actor ON public.households USING btree (actor_id);
+CREATE INDEX idx_fk_input_suppliers_actor ON public.input_suppliers USING btree (actor_id);
+CREATE INDEX idx_supplier_state ON public.input_suppliers USING btree (state);
+CREATE INDEX idx_insurance_actor ON public.insurance_policies USING btree (actor_id);
+CREATE INDEX idx_active_interventions ON public.interventions USING btree (id) WHERE (status = 'active'::text);
+CREATE INDEX idx_interventions_project ON public.interventions USING btree (project_id);
+CREATE INDEX idx_interventions_status ON public.interventions USING btree (status);
+CREATE INDEX idx_job_logs_job ON public.job_execution_logs USING btree (job_id);
+CREATE INDEX idx_livestock_actor ON public.livestock USING btree (actor_id);
+CREATE INDEX idx_fk_loans_institution ON public.loans USING btree (institution_id);
+CREATE INDEX idx_loans_actor ON public.loans USING btree (actor_id);
+CREATE INDEX idx_market_prices ON public.market_prices USING btree (commodity, observed_on);
+CREATE INDEX idx_market_prices_commodity ON public.market_prices USING btree (commodity);
+CREATE INDEX idx_market_prices_lookup ON public.market_prices USING btree (commodity, state, observed_on DESC);
+CREATE INDEX idx_market_prices_state ON public.market_prices USING btree (state);
+CREATE INDEX idx_media_message ON public.media_attachments USING btree (message_id);
+CREATE INDEX idx_fk_monitoring_visits_officer ON public.monitoring_visits USING btree (officer_id);
+CREATE INDEX idx_monitoring_actor ON public.monitoring_visits USING btree (actor_id);
+CREATE INDEX idx_monitoring_farm ON public.monitoring_visits USING btree (farm_id);
+CREATE INDEX idx_notification_queue_actor ON public.notification_queue USING btree (actor_id);
+CREATE INDEX idx_notification_queue_status ON public.notification_queue USING btree (status);
+CREATE INDEX idx_pending_notifications ON public.notification_queue USING btree (status) WHERE (status = 'pending'::text);
+CREATE INDEX idx_fk_notifications_actor ON public.notifications USING btree (actor_id);
+CREATE INDEX idx_fk_opportunities_org ON public.opportunities USING btree (organization_id);
+CREATE INDEX idx_opportunity_matches_actor ON public.opportunity_matches USING btree (actor_id);
+CREATE INDEX idx_fk_organization_members_actor ON public.organization_members USING btree (actor_id);
+CREATE INDEX idx_org_name ON public.organizations USING btree (name);
+CREATE INDEX idx_fk_outcome_indicators_org ON public.outcome_indicators USING btree (organization_id);
+CREATE INDEX idx_fk_pest_disease_reports_crop ON public.pest_disease_reports USING btree (crop_id);
+CREATE INDEX idx_fk_pest_disease_reports_farm ON public.pest_disease_reports USING btree (farm_id);
+CREATE INDEX idx_pest_actor ON public.pest_disease_reports USING btree (actor_id);
+CREATE INDEX idx_metrics_name ON public.platform_metrics USING btree (metric_name);
+CREATE INDEX idx_metrics_time ON public.platform_metrics USING btree (recorded_at DESC);
+CREATE INDEX idx_costs_season ON public.production_costs USING btree (crop_season_id);
+CREATE INDEX idx_active_projects ON public.projects USING btree (id) WHERE (status = 'active'::text);
+CREATE INDEX idx_projects_org ON public.projects USING btree (organization_id);
+CREATE INDEX idx_projects_status ON public.projects USING btree (status);
+CREATE INDEX idx_pulse_scores_actor ON public.pulse_scores USING btree (actor_id);
+CREATE INDEX idx_open_purchase_offers ON public.purchase_offers USING btree (status) WHERE (status = 'open'::text);
+CREATE INDEX idx_purchase_offers_actor ON public.purchase_offers USING btree (actor_id);
+CREATE INDEX idx_purchase_offers_buyer ON public.purchase_offers USING btree (buyer_id);
+CREATE INDEX idx_fk_recommendations_intervention ON public.recommendations USING btree (intervention_id);
+CREATE INDEX idx_recommendations_actor ON public.recommendations USING btree (actor_id);
+CREATE INDEX idx_savings_group_actor ON public.savings_group_members USING btree (actor_id);
+CREATE INDEX idx_fk_savings_groups_created_by ON public.savings_groups USING btree (created_by);
+CREATE INDEX idx_jobs_enabled ON public.scheduled_jobs USING btree (enabled);
+CREATE INDEX idx_fk_soil_tests_sampled_by ON public.soil_tests USING btree (sampled_by);
+CREATE INDEX idx_soil_farm ON public.soil_tests USING btree (farm_id);
+CREATE INDEX idx_answers_response ON public.survey_answers USING btree (response_id);
+CREATE INDEX idx_fk_survey_answers_question ON public.survey_answers USING btree (question_id);
+CREATE INDEX idx_questions_section ON public.survey_questions USING btree (section_id);
+CREATE INDEX idx_fk_survey_responses_enumerator ON public.survey_responses USING btree (enumerator_id);
+CREATE INDEX idx_responses_actor ON public.survey_responses USING btree (actor_id);
+CREATE INDEX idx_responses_survey ON public.survey_responses USING btree (survey_id);
+CREATE INDEX idx_sections_survey ON public.survey_sections USING btree (survey_id);
+CREATE INDEX idx_surveys_org ON public.surveys USING btree (organization_id);
+CREATE INDEX idx_system_events_type ON public.system_events USING btree (event_type);
+CREATE INDEX idx_fk_user_roles_role ON public.user_roles USING btree (role_id);
+CREATE INDEX idx_fk_users_actor ON public.users USING btree (actor_id);
+CREATE INDEX idx_voice_notes_message ON public.voice_notes USING btree (message_id);
+CREATE INDEX idx_voice_transcripts_note ON public.voice_transcripts USING btree (voice_note_id);
+CREATE INDEX idx_forecast_station_date ON public.weather_forecasts USING btree (station_id, forecast_date);
+CREATE INDEX idx_weather_forecast_station ON public.weather_forecasts USING btree (station_id);
+CREATE INDEX idx_weather_lookup ON public.weather_observations USING btree (station_id, observation_time DESC);
+CREATE INDEX idx_weather_station ON public.weather_observations USING btree (station_id);
+CREATE INDEX idx_weather_station_time ON public.weather_observations USING btree (station_id, observation_time);
+CREATE INDEX idx_messages_created ON public.whatsapp_messages USING btree (created_at);
+CREATE INDEX idx_messages_session ON public.whatsapp_messages USING btree (session_id);
+CREATE INDEX idx_messages_session_created ON public.whatsapp_messages USING btree (session_id, created_at DESC);
+CREATE INDEX idx_whatsapp_messages_actor ON public.whatsapp_messages USING btree (actor_id);
+CREATE INDEX idx_fk_whatsapp_sessions_org ON public.whatsapp_sessions USING btree (organization_id);
+CREATE INDEX idx_sessions_phone ON public.whatsapp_sessions USING btree (phone);
+CREATE INDEX idx_whatsapp_sessions_actor ON public.whatsapp_sessions USING btree (actor_id);
