@@ -1,0 +1,199 @@
+-- ============================================================
+-- 0005: Views and materialized view
+-- All views use security_invoker so they respect querying user's RLS
+-- ============================================================
+
+CREATE VIEW public.vw_actor_profile AS
+SELECT a.id, a.organization_id, a.actor_number, a.actor_type, a.full_name, a.phone, a.email, a.state, a.lga, a.primary_crop,
+    count(DISTINCT f.id) AS farms,
+    COALESCE(sum(f.area_ha), 0::numeric) AS total_area,
+    count(DISTINCT cs.id) AS crop_seasons,
+    count(DISTINCT ai.id) AS ai_recommendations,
+    max(ps.overall_score) AS pulse_score
+FROM actors a
+LEFT JOIN farms f ON f.actor_id = a.id
+LEFT JOIN crop_seasons cs ON cs.farm_id = f.id
+LEFT JOIN ai_recommendations ai ON ai.actor_id = a.id
+LEFT JOIN pulse_scores ps ON ps.actor_id = a.id
+GROUP BY a.id, a.organization_id, a.actor_number, a.actor_type, a.full_name, a.phone, a.email, a.state, a.lga, a.primary_crop;
+ALTER VIEW public.vw_actor_profile SET (security_invoker = true);
+
+CREATE VIEW public.vw_actor_without_org AS
+SELECT id, organization_id, actor_number, actor_type, full_name, phone, email, gender, state, lga, ward, community,
+    primary_crop, farm_size_ha, verification_status, active, metadata, created_at, updated_at, deleted_at
+FROM actors WHERE organization_id IS NULL;
+ALTER VIEW public.vw_actor_without_org SET (security_invoker = true);
+
+CREATE VIEW public.vw_ai_performance AS
+SELECT m.name AS model, count(*) AS requests, avg(l.latency_ms) AS avg_latency,
+    sum(CASE WHEN l.success THEN 1 ELSE 0 END) AS successful,
+    sum(CASE WHEN l.success THEN 0 ELSE 1 END) AS failed
+FROM ai_inference_logs l LEFT JOIN ai_models m ON m.id = l.model_id
+GROUP BY m.name;
+ALTER VIEW public.vw_ai_performance SET (security_invoker = true);
+
+CREATE VIEW public.vw_backup_status AS
+SELECT backup_name, backup_type, success, backup_size_mb, completed_at
+FROM backup_history ORDER BY completed_at DESC;
+ALTER VIEW public.vw_backup_status SET (security_invoker = true);
+
+CREATE VIEW public.vw_database_statistics AS
+SELECT 'actors'::text AS table_name, count(*) AS records FROM actors
+UNION ALL SELECT 'farms'::text, count(*) FROM farms
+UNION ALL SELECT 'projects'::text, count(*) FROM projects
+UNION ALL SELECT 'interventions'::text, count(*) FROM interventions
+UNION ALL SELECT 'beneficiaries'::text, count(*) FROM beneficiaries
+UNION ALL SELECT 'conversations'::text, count(*) FROM conversations
+UNION ALL SELECT 'whatsapp_messages'::text, count(*) FROM whatsapp_messages
+UNION ALL SELECT 'ai_conversations'::text, count(*) FROM ai_conversations;
+ALTER VIEW public.vw_database_statistics SET (security_invoker = true);
+
+CREATE VIEW public.vw_duplicate_actor_phone AS
+SELECT phone, count(*) AS duplicates FROM actors GROUP BY phone HAVING count(*) > 1;
+ALTER VIEW public.vw_duplicate_actor_phone SET (security_invoker = true);
+
+CREATE VIEW public.vw_farm_summary AS
+SELECT f.id, f.farm_name, f.commodity, f.area_ha, a.id AS actor_id, a.full_name,
+    count(DISTINCT fp.id) AS plots, count(DISTINCT cs.id) AS seasons, count(DISTINCT h.id) AS harvests
+FROM farms f
+JOIN actors a ON a.id = f.actor_id
+LEFT JOIN farm_plots fp ON fp.farm_id = f.id
+LEFT JOIN crop_seasons cs ON cs.farm_id = f.id
+LEFT JOIN harvests h ON h.crop_season_id = cs.id
+GROUP BY f.id, a.id;
+ALTER VIEW public.vw_farm_summary SET (security_invoker = true);
+
+CREATE VIEW public.vw_index_statistics AS
+SELECT schemaname, relname AS table_name, indexrelname AS index_name, idx_scan, idx_tup_read, idx_tup_fetch
+FROM pg_stat_user_indexes ORDER BY idx_scan DESC NULLS LAST;
+ALTER VIEW public.vw_index_statistics SET (security_invoker = true);
+
+CREATE VIEW public.vw_intervention_summary AS
+SELECT i.id, i.intervention_name, p.project_name,
+    count(DISTINCT b.actor_id) AS beneficiaries,
+    count(DISTINCT de.id) AS distributions,
+    COALESCE(sum(di.quantity), 0::numeric) AS items_distributed
+FROM interventions i
+LEFT JOIN projects p ON p.id = i.project_id
+LEFT JOIN beneficiaries b ON b.intervention_id = i.id
+LEFT JOIN distribution_events de ON de.intervention_id = i.id
+LEFT JOIN distribution_items di ON di.distribution_event_id = de.id
+GROUP BY i.id, i.intervention_name, p.project_name;
+ALTER VIEW public.vw_intervention_summary SET (security_invoker = true);
+
+CREATE VIEW public.vw_maintenance_schedule AS
+SELECT id, title, scheduled_start, scheduled_end, completed, notes, created_at
+FROM maintenance_windows ORDER BY scheduled_start DESC;
+ALTER VIEW public.vw_maintenance_schedule SET (security_invoker = true);
+
+CREATE VIEW public.vw_market_prices AS
+SELECT commodity, state, avg(price) AS average_price, min(price) AS minimum_price, max(price) AS maximum_price, count(*) AS observations
+FROM market_prices GROUP BY commodity, state;
+ALTER VIEW public.vw_market_prices SET (security_invoker = true);
+
+CREATE VIEW public.vw_market_trends AS
+SELECT commodity, observed_on, avg(price) AS average_price, min(price) AS minimum_price, max(price) AS maximum_price
+FROM market_prices GROUP BY commodity, observed_on;
+ALTER VIEW public.vw_market_trends SET (security_invoker = true);
+
+CREATE VIEW public.vw_organization_dashboard AS
+SELECT o.id AS organization_id, o.name,
+    count(DISTINCT a.id) AS actors, count(DISTINCT f.id) AS farms,
+    COALESCE(sum(f.area_ha), 0::numeric) AS total_area_ha,
+    count(DISTINCT p.id) AS projects, count(DISTINCT i.id) AS interventions, count(DISTINCT b.id) AS beneficiaries
+FROM organizations o
+LEFT JOIN actors a ON a.organization_id = o.id
+LEFT JOIN farms f ON f.actor_id = a.id
+LEFT JOIN projects p ON p.organization_id = o.id
+LEFT JOIN interventions i ON i.project_id = p.id
+LEFT JOIN beneficiaries b ON b.intervention_id = i.id
+GROUP BY o.id, o.name;
+ALTER VIEW public.vw_organization_dashboard SET (security_invoker = true);
+
+CREATE VIEW public.vw_orphan_beneficiaries AS
+SELECT b.id, b.intervention_id, b.actor_id, b.enrollment_date, b.beneficiary_status, b.metadata, b.created_at
+FROM beneficiaries b LEFT JOIN actors a ON a.id = b.actor_id
+WHERE a.id IS NULL;
+ALTER VIEW public.vw_orphan_beneficiaries SET (security_invoker = true);
+
+CREATE VIEW public.vw_orphan_farms AS
+SELECT f.id, f.actor_id, f.farm_name, f.commodity, f.latitude, f.longitude, f.area_ha, f.verified, f.metadata, f.created_at, f.updated_at
+FROM farms f LEFT JOIN actors a ON a.id = f.actor_id
+WHERE a.id IS NULL;
+ALTER VIEW public.vw_orphan_farms SET (security_invoker = true);
+
+CREATE VIEW public.vw_platform_status AS
+SELECT
+    (SELECT count(*) FROM organizations) AS organizations,
+    (SELECT count(*) FROM actors) AS actors,
+    (SELECT count(*) FROM farms) AS farms,
+    (SELECT count(*) FROM users) AS users,
+    (SELECT count(*) FROM ai_models WHERE ai_models.active) AS active_models,
+    (SELECT count(*) FROM weather_stations) AS weather_stations,
+    (SELECT count(*) FROM api_clients WHERE api_clients.active) AS api_clients,
+    (SELECT max(audit_logs.created_at) FROM audit_logs) AS last_audit,
+    now() AS server_time;
+ALTER VIEW public.vw_platform_status SET (security_invoker = true);
+
+CREATE VIEW public.vw_platform_summary AS
+SELECT
+    (SELECT count(*) FROM organizations) AS organizations,
+    (SELECT count(*) FROM actors) AS actors,
+    (SELECT count(*) FROM farms) AS farms,
+    (SELECT count(*) FROM users) AS users,
+    (SELECT count(*) FROM projects) AS projects,
+    (SELECT count(*) FROM interventions) AS interventions,
+    (SELECT count(*) FROM ai_conversations) AS ai_conversations,
+    (SELECT count(*) FROM whatsapp_messages) AS whatsapp_messages,
+    (SELECT count(*) FROM notification_queue WHERE notification_queue.status = 'pending'::text) AS pending_notifications,
+    (SELECT count(*) FROM error_logs) AS total_errors,
+    now() AS generated_at;
+ALTER VIEW public.vw_platform_summary SET (security_invoker = true);
+
+CREATE VIEW public.vw_table_statistics AS
+SELECT schemaname, relname AS table_name, seq_scan, seq_tup_read, idx_scan, idx_tup_fetch, n_live_tup, n_dead_tup
+FROM pg_stat_user_tables ORDER BY relname;
+ALTER VIEW public.vw_table_statistics SET (security_invoker = true);
+
+CREATE VIEW public.vw_top_crops AS
+SELECT commodity, count(*) AS farms, sum(area_ha) AS total_area
+FROM farms GROUP BY commodity ORDER BY sum(area_ha) DESC;
+ALTER VIEW public.vw_top_crops SET (security_invoker = true);
+
+CREATE VIEW public.vw_top_states AS
+SELECT state, count(*) AS actors, avg(farm_size_ha) AS average_farm_size
+FROM actors GROUP BY state ORDER BY count(*) DESC;
+ALTER VIEW public.vw_top_states SET (security_invoker = true);
+
+CREATE VIEW public.vw_weather_dashboard AS
+SELECT s.station_name, max(o.observation_time) AS last_observation,
+    avg(o.temperature_c) AS avg_temperature, sum(o.rainfall_mm) AS rainfall, avg(o.humidity_percent) AS humidity
+FROM weather_stations s LEFT JOIN weather_observations o ON o.station_id = s.id
+GROUP BY s.station_name;
+ALTER VIEW public.vw_weather_dashboard SET (security_invoker = true);
+
+CREATE VIEW public.vw_weather_summary AS
+SELECT station_id, date(observation_time) AS observation_date,
+    avg(temperature_c) AS average_temperature, sum(rainfall_mm) AS rainfall, avg(humidity_percent) AS humidity
+FROM weather_observations GROUP BY station_id, date(observation_time);
+ALTER VIEW public.vw_weather_summary SET (security_invoker = true);
+
+-- ---------- Materialized view ----------
+-- NOTE: not selectable by anon/authenticated (revoked in 0006) since
+-- materialized views cannot carry RLS policies. Refreshed via
+-- app.refresh_dashboard() / app.refresh_all_dashboards().
+
+CREATE MATERIALIZED VIEW public.mv_dashboard_summary AS
+SELECT o.id AS organization_id, o.name,
+    count(DISTINCT a.id) AS actors, count(DISTINCT f.id) AS farms,
+    COALESCE(sum(f.area_ha), 0::numeric) AS total_area_ha,
+    count(DISTINCT p.id) AS projects, count(DISTINCT i.id) AS interventions, count(DISTINCT b.id) AS beneficiaries
+FROM organizations o
+LEFT JOIN actors a ON a.organization_id = o.id
+LEFT JOIN farms f ON f.actor_id = a.id
+LEFT JOIN projects p ON p.organization_id = o.id
+LEFT JOIN interventions i ON i.project_id = p.id
+LEFT JOIN beneficiaries b ON b.intervention_id = i.id
+GROUP BY o.id, o.name;
+
+CREATE UNIQUE INDEX idx_mv_dashboard_org ON public.mv_dashboard_summary USING btree (organization_id);
