@@ -1,0 +1,19 @@
+-- ============================================================
+-- 0007: Triggers on auth.users
+-- Fires in alphabetical order: on_auth_user_created runs first
+-- (creates bare users row), zzz_bootstrap_cultivate_admin runs
+-- second (links actor + org + platform_admin role for the
+-- initial coalition convener account only).
+-- ============================================================
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION app.handle_new_user();
+
+DROP TRIGGER IF EXISTS zzz_bootstrap_cultivate_admin ON auth.users;
+CREATE TRIGGER zzz_bootstrap_cultivate_admin
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION app.zzz_bootstrap_cultivate_admin();
